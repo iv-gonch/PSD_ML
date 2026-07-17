@@ -3,6 +3,46 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-17 — Audit and preprocess raw waveform sample
+
+**Task:** determine necessary waveform preprocessing from measured data, apply it
+reproducibly, and describe processed shapes without assigning particle identity.
+
+**Changes:** added the project mini-library `psd_ml/pipeline.py`; refactored
+`csv_data_processing.ipynb` so its code cells contain only parameters and stage-level
+library calls; audited a fixed stratified sample of 10,000 pulses; generated aligned
+amplitude, aligned peak-normalized, per-event feature/QC, and group summary CSV files;
+and added five interactive channel-level processed-shape summaries. No event is silently
+deleted.
+
+**Findings:** no sampled pulse reached an ADC rail; median baseline RMS is 3.136 ADC;
+the 95th percentile absolute baseline slope is 0.584 ADC/sample; baseline estimates from
+8–16 initial samples differ from the 12-sample median by at most 2 ADC at the reported
+95th percentiles; median SNR is 403.6; raw CFD-50 spans 16.62–25.10 samples at the 1–99%
+quantiles; and relative tail residual has 95/99% quantiles 1.31%/3.10%. Per-group
+baseline-versus-source-row correlations are reported separately to avoid confounding
+time drift with channel offsets.
+
+**Processing:** median baseline from samples 0–11, sign inversion, sub-sample CFD-50
+alignment to sample 20, and separate amplitude-retaining/peak-normalized branches. No
+smoothing or linear detrending. QC flags cover clipping, SNR, baseline noise, alignment,
+tail recovery, and conservative multi-peak structure.
+
+**Verification:** executed the full notebook without errors or warnings; verified 15
+native Plotly outputs, 10 raw and 5 processed HTML files, 10,000 rows in each processed
+waveform CSV, 10,001 rows including headers in provenance/features, and 11 rows including
+the header in the group audit. The 99th percentile post-alignment CFD error is 0.2355
+sample and normalized valid pulses peak at one.
+
+**Files created/modified:** `psd_ml/__init__.py`, `psd_ml/pipeline.py`,
+`csv_data_processing.ipynb`, `docs/DECISIONS.md`, `docs/PROJECT_CONTEXT.md`, and generated
+ignored artifacts under `gamma_n_data/samples/`.
+
+**Limitations/next step:** the audit is balanced rather than representative and uses only
+one run per source condition. Obtain independent repeated/background runs, confirm timing
+units and acquisition-filter semantics, then test preprocessing stability by complete
+run before interpreting separation features.
+
 ## 2026-07-17 — Initialize and publish Git repository
 
 **Task:** Activate Git for `PSD_ML` and connect it to the user's GitHub account as a

@@ -15,6 +15,49 @@ tasks in the project can read and update the same workspace.
 **Consequence:** every material task must read shared memory at startup and publish a
 handoff before finishing, as required by the root `AGENTS.md`.
 
+## 2026-07-17 — Keep implementation in a project Python library
+
+**Decision:** new processing logic is implemented as functions in the project-local
+`psd_ml/` package. Notebooks expose parameters, call those functions in conceptual order,
+and display their results; they do not contain function implementations or processing
+loops. This supersedes the implementation-in-notebook part of the earlier “Use one
+notebook” decision while preserving `csv_data_processing.ipynb` as the reproducible
+orchestration and research record.
+
+**Rationale:** reusable Python functions can be tested and called outside Jupyter, while
+short stage-level notebook calls keep the analysis legible without requiring readers to
+inspect implementation details continuously.
+
+**Consequence:** add functions only when an analysis stage needs them, give each public
+function one clear scientific role, and keep all parameters that affect an experiment
+visible in the notebook.
+
+## 2026-07-17 — Initial waveform preprocessing based on technical diagnostics
+
+**Decision:** for the current 144-sample waveforms, compute a per-event baseline as the
+median of samples 0–11; subtract it and invert the negative pulse polarity; align each
+valid event by linearly interpolating its first CFD-50 leading-edge crossing to sample
+20. Preserve both an amplitude-retaining aligned branch and a peak-normalized branch for
+shape-only comparisons. Do not smooth or fit/remove a linear baseline trend at this
+stage.
+
+Flag, but do not delete, ADC clipping, low SNR, anomalous baseline noise, invalid/early
+alignment, tail non-recovery, and conservative multi-peak topology. Thresholds based on
+noise are fitted per channel while pooling both source runs, so source identity does not
+choose data-quality cuts.
+
+**Rationale:** on the fixed 10,000-event source×channel-stratified audit sample, baseline
+window estimates are stable through 12 samples; the 95th percentile absolute baseline
+slope is only 0.584 ADC/sample; no event reaches either ADC rail; the raw CFD-50 1–99%
+range is 16.62–25.10 samples; and 99% of relative tail residuals are below 3.11%. These
+measurements justify baseline correction and time alignment but not smoothing, linear
+detrending, or blanket tail correction.
+
+**Consequence:** this is a technical conditioning stage, not a neutron/gamma selector.
+The source labels remain acquisition-condition labels, suspicious events remain present
+with QC columns, and parameters must be re-audited on independent runs before being
+treated as stable production defaults.
+
 ## 2026-07-17 — Validate by complete experimental run
 
 **Decision:** model evaluation and transformation fitting must split data by complete
