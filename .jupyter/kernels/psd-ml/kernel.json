@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/Users/iv-gonch/work/npodar/PSD_ML/.venv/bin/python",
+    "-Xfrozen_modules=off",
+    "-m",
+    "ipykernel_launcher",
+    "-f",
+    "{connection_file}"
+  ],
+  "display_name": "PSD_ML (.venv)",
+  "language": "python",
+  "metadata": {
+    "debugger": true
+  }
+}

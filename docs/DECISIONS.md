@@ -1,0 +1,125 @@
+# Project decisions
+
+This file records durable decisions shared by all project tasks. New entries should state
+the date, decision, rationale, and consequences. If a decision is superseded, retain it
+and point to the replacing entry.
+
+## 2026-07-17 — Use files as cross-chat project memory
+
+**Decision:** `docs/PROJECT_CONTEXT.md`, `docs/WORKLOG.md`, and this file are the canonical
+communication layer between Codex chats working in `PSD_ML`.
+
+**Rationale:** sibling chats do not automatically share their full transcripts, while all
+tasks in the project can read and update the same workspace.
+
+**Consequence:** every material task must read shared memory at startup and publish a
+handoff before finishing, as required by the root `AGENTS.md`.
+
+## 2026-07-17 — Validate by complete experimental run
+
+**Decision:** model evaluation and transformation fitting must split data by complete
+series, run, or experimental day rather than randomly splitting individual pulses.
+
+**Rationale:** pulses from one acquisition share technical conditions and can cause severe
+data leakage.
+
+**Consequence:** run identifiers and acquisition metadata are required fields in the audit
+table and all evaluation datasets.
+
+## 2026-07-17 — Use candidate terminology before independent labels
+
+**Decision:** without independent neutron truth labels, model outputs are called
+neutron-like scores or candidates rather than neutron probabilities.
+
+**Rationale:** `G` versus `M` origin labels identify experimental mixtures, not the true
+particle identity of each pulse.
+
+## 2026-07-17 — Preserve ROOT event/sample order in waveform CSV exports
+
+**Decision:** waveform CSV exports are headerless, contain exactly one pulse per row and
+one ADC sample per column, and preserve both TTree entry order and sample order. Event
+metadata remain outside these waveform-only files.
+
+**Rationale:** this makes every line satisfy the requested one-row/one-pulse interface
+without inserting a non-pulse header row, while retaining a deterministic mapping back
+to the source ROOT entry.
+
+**Consequence:** columns are interpreted positionally as samples 0 through 143. Metadata
+must be read from the source ROOT tree or exported separately if later required.
+
+## 2026-07-17 — Use one notebook as the reproducible CSV processing pipeline
+
+**Decision:** subsequent CSV transformations and analysis steps are implemented in
+`csv_data_processing.ipynb`, or accompanied by exact manual launch instructions when a
+notebook implementation is impractical. Random operations expose and fix their seed.
+
+**Rationale:** the complete data lineage, parameters, generated artifacts, and plots must
+be reproducible manually through an ordered `Run All` workflow.
+
+**Consequence:** avoid isolated exploratory scripts that cannot be replayed from the
+notebook. Generated samples retain a separate provenance table mapping them to source
+run, channel, file, and row.
+
+## 2026-07-17 — Balance the exploratory sample by source
+
+**Decision:** the small visualization/development sample contains equal numbers of
+`60Co` and `252Cf` events. Sampling is uniform without replacement within each run; its
+channel composition therefore follows the observed channel event counts within that run.
+
+**Rationale:** equal source counts make side-by-side visual comparison legible and prevent
+the much larger Co acquisition from dominating the exploratory sample.
+
+**Consequence:** this is an intentionally balanced exploratory distribution, not an
+estimate of real source priors or class probabilities. The provenance table remains the
+authoritative mapping to original run/channel frequencies.
+
+## 2026-07-17 — Supersede source-only balance with source-channel stratification
+
+**Decision:** the exploratory visualization sample now contains exactly 1,000 events for
+each `source × channel` pair: two sources and channels 0, 2, 3, 4, and 5, for 10,000
+events total. This supersedes the source-only balancing decision above for the current
+notebook output.
+
+**Rationale:** pulse shapes and acquisition settings can differ by detector channel, so
+combining channels hides structure and makes source comparisons ambiguous.
+
+**Consequence:** generate and interpret ten separate source-channel plots. The sample is
+deliberately stratified and must not be used to estimate natural source/channel priors.
+
+## 2026-07-17 — Canonical detector labels and channel mapping
+
+**Decision:** use the following channel labels in every plot, table, model report, and
+future discussion:
+
+- CH0: `PMT-9102B + T-Stlbn` — 40×40 mm trans-stilbene crystal;
+- CH2: `PMT-9102B + T-Stlbn` — 40×40 mm trans-stilbene crystal;
+- CH3: `PMT-R6094 + P-Trfnl` — 25×25 mm p-terphenyl crystal;
+- CH4: `PMT-R6231 + T-Stlbn` — 40×40 mm trans-stilbene crystal;
+- CH5: `PMT-R6231 + P-Trfnl` — 40×40 mm p-terphenyl crystal.
+
+The experimental detector designations additionally describe detectors 0 and 2 as the
+two PMT-9102B/trans-stilbene assemblies, detector 1 as PMT-R6231/trans-stilbene,
+detector 3 as PMT-R6231/p-terphenyl, and detector 4 as PMT-R6094/p-terphenyl.
+
+**Rationale:** file channel numbers and experimental detector numbers are not the same
+numbering scheme for every assembly. A canonical composition label prevents ambiguous
+comparisons.
+
+**Consequence:** retain the file channel as a technical identifier, but display it with
+the exact `<PMT> + <scintillator>` label above. Do not relabel CH3/CH4/CH5 merely from
+their numeric order.
+
+## 2026-07-17 — Publish code and reproducible workflow, not bulk data
+
+**Decision:** the project is versioned in the public GitHub repository
+`iv-gonch/PSD_ML`. Commit source code, notebooks, documentation, run metadata, settings,
+and small reference screenshots. Exclude raw ROOT files, derived bulk CSV files,
+generated samples/plots, `.venv`, and local application caches.
+
+**Rationale:** raw and derived experimental files occupy multiple gigabytes and are
+reproducible from the authoritative ROOT data; committing them would make the repository
+impractical and risks exceeding GitHub file limits.
+
+**Consequence:** `.gitignore` defines the publication boundary. Data distribution, if
+needed later, must use a dedicated dataset release or external storage with checksums and
+documented provenance.

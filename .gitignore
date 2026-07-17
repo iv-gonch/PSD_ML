@@ -1,0 +1,18 @@
+# macOS and Python caches
+.DS_Store
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local environments and runtime caches
+.venv/
+.matplotlib/
+.codex/
+
+# Large raw and derived experimental data
+*.root
+gamma_n_data/CSV/
+gamma_n_data/samples/
+
+# Temporary export files
+*.part
