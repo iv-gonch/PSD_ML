@@ -3,6 +3,39 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Redesign Cf Energy-binned form comparison plots
+
+**Task:** make `cf_energy_binned_form_figures` informative, eliminate overlapping text,
+restore a visible legend, and explain the comparison.
+
+**Changes:** replaced the 12-panel waveform-heatmap grid with five paired, row-wise
+figures. Every row holds one channel-specific Energy interval. The left panel shows the
+observed late-area-score density and, only for supported splits, both weighted Gaussian
+components. The right panel shows the median and 10–90% normalized-waveform band for
+the same groups. Added compact row labels with Energy, event count, and split status;
+shared axes; explicit column headings; a fixed horizontal legend; and a notebook section
+explaining the scientific logic and color semantics. Renamed the presentation parameter
+to `shape_score_density_bins`.
+
+**Interpretation:** with Energy approximately fixed by row, repeatable two-component
+score distributions plus consistently slower higher-tail waveforms constitute the
+visual evidence sought. A single colored row does not establish a physical class, and
+the branches are not yet gamma/neutron labels.
+
+**Verification:** compiled the library and executed the complete notebook without
+errors. Verified five new Plotly MIME figures, 12 non-overlapping Energy-row labels per
+figure, four visible legend entries, two column headings, shared bottom-axis labels, and
+regenerated five standalone HTML files. The notebook now has 28 cells and 32 Plotly
+outputs. A live browser renderer was unavailable in this session, so layout verification
+used the executed Plotly figure structure and explicit spacing/margins.
+
+**Files modified:** `psd_ml/pipeline.py`, `csv_data_processing.ipynb`,
+`docs/DECISIONS.md`, `docs/PROJECT_CONTEXT.md`, and `docs/WORKLOG.md`.
+
+**Recommended next step:** use the paired plots to inspect whether supported higher-tail
+events resemble physical slow-tail pulses or residual pileup, then compare the same
+Energy intervals against Co and classical PSD.
+
 ## 2026-07-20 — Search for normalized-form branches in narrow Cf Energy intervals
 
 **Task:** for every Cf channel separately, plot normalized-form distributions in narrow

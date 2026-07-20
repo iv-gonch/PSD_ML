@@ -15,6 +15,24 @@ tasks in the project can read and update the same workspace.
 **Consequence:** every material task must read shared memory at startup and publish a
 handoff before finishing, as required by the root `AGENTS.md`.
 
+## 2026-07-20 — Pair score distributions with waveform bands in Cf branch plots
+
+**Decision:** the primary per-channel visualization of the Energy-stratified Cf analysis
+uses one row per Energy interval and two aligned columns. The left column shows the
+observed late-area-score density and fitted components; the right column shows the
+median and 10–90% band of the corresponding normalized waveforms. Branch colors appear
+only when the interval passes every predeclared statistical criterion. Energy bounds,
+event count, and the pass/fail status are displayed once in a dedicated row label.
+
+**Rationale:** the former grid of waveform heatmaps obscured the actual test of
+bimodality, repeated long subplot titles overlapped, and the legend was difficult to
+find. The paired view directly separates two questions: whether two score components
+exist at approximately fixed Energy, and where their waveform shapes differ.
+
+**Consequence:** interpret a branch only from repeated agreement of both columns across
+neighboring Energy rows. A colored fit in one row remains insufficient evidence, and
+lower-/higher-tail labels remain geometric descriptions rather than particle identities.
+
 ## 2026-07-20 — Test Cf shape branches inside channel-specific Energy strata
 
 **Decision:** join a sampled CSV waveform to ROOT `Energy` and `EnergyShort` by its

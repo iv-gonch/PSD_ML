@@ -64,6 +64,11 @@ baseline, timing, and other acquisition artifacts.
   consecutive; its evidence is therefore weaker and needs more statistics. The lowest
   Energy intervals generally remain unresolved. Higher-tail candidates are a minority
   and must not yet be interpreted as neutrons. Only one Cf run is available.
+- The five `cf_energy_binned_form_figures` were redesigned for legibility. Each Energy
+  interval is now one spacious row: observed/fitted late-area-score density on the left,
+  and normalized waveform median with a 10–90% band on the right. A fixed top legend and
+  separate row labels replace the overlapping subplot titles. The notebook explains how
+  to read both columns and why Energy is held approximately fixed within each row.
 - ROOT `Energy` is currently uncalibrated but correlates strongly with waveform amplitude
   in the Cf analysis sample (Pearson 0.9979–0.9993 by channel). The waveform-only shape
   score is related to but not identical to CoMPASS PSD (correlations 0.6428–0.7695).

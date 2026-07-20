@@ -75,7 +75,7 @@ class EnergyShapeConfig:
     integration_start: int = 15
     tail_start: int = 40
     integration_stop: int = 100
-    amplitude_density_bins: int = 72
+    shape_score_density_bins: int = 48
     bic_delta_threshold: float = 10.0
     separation_threshold: float = 2.0
     min_component_events: int = 8
@@ -1744,114 +1744,263 @@ def plot_energy_binned_shape_distributions(
     config: EnergyShapeConfig,
     random_seed: int,
 ) -> list[go.Figure]:
-    """Plot conditional densities of normalized forms in each Cf Energy interval."""
+    """Compare score distributions and normalized waveforms in every Cf Energy bin.
+
+    Each row holds Energy approximately fixed. The left panel shows whether the
+    late-area score is unimodal or contains two supported mixture components. The right
+    panel shows the median and 10–90% waveform band of the same event groups, making the
+    physical location of the shape difference visible without a dense heatmap.
+    """
 
     figures = []
     sample_axis = np.arange(config.integration_start, config.integration_stop)
-    amplitude_edges = np.linspace(-0.10, 1.05, config.amplitude_density_bins + 1)
-    amplitude_centers = (amplitude_edges[:-1] + amplitude_edges[1:]) / 2
     tag = f"{config.pulses_per_channel}_per_channel_seed_{random_seed}"
+    colors = {
+        "observed": "#8c8c8c",
+        "unsplit": "#303030",
+        "low": "#1f77b4",
+        "high": "#d95f02",
+    }
+    fills = {
+        "unsplit": "rgba(48,48,48,0.14)",
+        "low": "rgba(31,119,180,0.18)",
+        "high": "rgba(217,95,2,0.18)",
+    }
 
     for channel in sorted(DETECTOR_LABELS):
-        channel_rows = [
-            row for row in analysis.bin_rows if row["channel"] == channel
-        ]
-        subplot_titles = [
-            (
-                f"bin {row['energy_bin']}: E {row['energy_low']:.0f}–"
-                f"{row['energy_high']:.0f}, n={row['n']}, "
-                f"2-branch={'yes' if row['two_branch_supported'] else 'no'}"
-            )
-            for row in channel_rows
-        ]
-        subplot_cols = 3 if config.energy_bins > 8 else 2
-        subplot_rows = int(np.ceil(config.energy_bins / subplot_cols))
+        channel_rows = sorted(
+            (row for row in analysis.bin_rows if row["channel"] == channel),
+            key=lambda row: int(row["energy_bin"]),
+        )
+        channel_indices = np.flatnonzero(
+            analysis.shape_usable & (sample.channels == channel)
+        )
+        channel_scores = analysis.shape_score[channel_indices]
+        score_padding = max(np.ptp(channel_scores) * 0.03, 1e-3)
+        score_range = (
+            float(channel_scores.min() - score_padding),
+            float(channel_scores.max() + score_padding),
+        )
+        score_edges = np.linspace(
+            score_range[0], score_range[1], config.shape_score_density_bins + 1
+        )
+        score_centers = (score_edges[:-1] + score_edges[1:]) / 2
+        score_grid = np.linspace(score_range[0], score_range[1], 300)
+
         fig = make_subplots(
-            rows=subplot_rows,
-            cols=subplot_cols,
-            subplot_titles=subplot_titles,
-            shared_xaxes=True,
-            shared_yaxes=True,
-            vertical_spacing=0.065,
-            horizontal_spacing=0.06,
+            rows=config.energy_bins,
+            cols=2,
+            shared_xaxes="columns",
+            horizontal_spacing=0.09,
+            vertical_spacing=0.012,
+            column_widths=[0.43, 0.57],
         )
         legend_seen: set[str] = set()
-        for position, row_data in enumerate(channel_rows):
-            row = position // subplot_cols + 1
-            col = position % subplot_cols + 1
+
+        def add_waveform_band(
+            shapes: np.ndarray,
+            row_number: int,
+            color_key: str,
+            label: str,
+        ) -> None:
+            q10, median, q90 = np.nanquantile(shapes, [0.10, 0.50, 0.90], axis=0)
+            fig.add_trace(go.Scatter(
+                x=sample_axis,
+                y=q10,
+                mode="lines",
+                line={"width": 0},
+                legendgroup=label,
+                showlegend=False,
+                hoverinfo="skip",
+            ), row=row_number, col=2)
+            fig.add_trace(go.Scatter(
+                x=sample_axis,
+                y=q90,
+                mode="lines",
+                line={"width": 0},
+                fill="tonexty",
+                fillcolor=fills[color_key],
+                legendgroup=label,
+                showlegend=False,
+                hoverinfo="skip",
+            ), row=row_number, col=2)
+            fig.add_trace(go.Scatter(
+                x=sample_axis,
+                y=median,
+                mode="lines",
+                name=label,
+                legendgroup=label,
+                showlegend=label not in legend_seen,
+                line={"color": colors[color_key], "width": 2.2},
+                hovertemplate=(
+                    f"{label}<br>sample=%{{x}}<br>median=%{{y:.3f}}"
+                    "<extra></extra>"
+                ),
+            ), row=row_number, col=2)
+            legend_seen.add(label)
+
+        for row_number, row_data in enumerate(channel_rows, start=1):
             bin_index = int(row_data["energy_bin"])
             indices = np.flatnonzero(
                 analysis.shape_usable
                 & (sample.channels == channel)
                 & (analysis.energy_bin == bin_index)
             )
+            scores = analysis.shape_score[indices]
             shapes = processed.aligned_normalized[
                 indices, config.integration_start : config.integration_stop
             ]
-            density = np.empty(
-                (config.amplitude_density_bins, len(sample_axis)), dtype=float
-            )
-            for sample_position in range(len(sample_axis)):
-                counts, _ = np.histogram(
-                    shapes[:, sample_position], bins=amplitude_edges
-                )
-                density[:, sample_position] = counts / len(shapes)
-            fig.add_trace(go.Heatmap(
-                x=sample_axis,
-                y=amplitude_centers,
-                z=density,
-                coloraxis="coloraxis",
-                hovertemplate=(
-                    "sample=%{x}<br>normalized amplitude=%{y:.3f}<br>"
-                    "fraction/bin=%{z:.3f}<extra></extra>"
-                ),
-            ), row=row, col=col)
-
-            overall_name = "overall median"
+            counts, _ = np.histogram(scores, bins=score_edges, density=True)
+            observed_label = "Observed score density"
             fig.add_trace(go.Scatter(
-                x=sample_axis,
-                y=np.nanmedian(shapes, axis=0),
+                x=score_centers,
+                y=counts,
                 mode="lines",
-                name=overall_name,
-                legendgroup=overall_name,
-                showlegend=overall_name not in legend_seen,
-                line={"color": "#111111", "width": 2},
-            ), row=row, col=col)
-            legend_seen.add(overall_name)
+                fill="tozeroy",
+                name=observed_label,
+                legendgroup=observed_label,
+                showlegend=observed_label not in legend_seen,
+                line={"color": colors["observed"], "width": 1.3},
+                fillcolor="rgba(140,140,140,0.22)",
+                hovertemplate=(
+                    "late-area score=%{x:.4f}<br>density=%{y:.2f}"
+                    "<extra></extra>"
+                ),
+            ), row=row_number, col=1)
+            legend_seen.add(observed_label)
 
-            if row_data["two_branch_supported"]:
+            supported = bool(row_data["two_branch_supported"])
+            if supported:
                 local_components = analysis.mixture_component[indices]
-                for component, color, name in (
-                    (0, "#1f77b4", "lower-score median"),
-                    (1, "#ff7f0e", "higher-score median"),
+                for component, color_key, label in (
+                    (0, "low", "Lower-tail branch"),
+                    (1, "high", "Higher-tail branch"),
                 ):
-                    component_shapes = shapes[local_components == component]
+                    weight = float(row_data[f"component_{component}_weight"])
+                    mean = float(row_data[f"component_{component}_mean"])
+                    sigma = float(row_data[f"component_{component}_sigma"])
+                    component_density = (
+                        weight
+                        / (sigma * np.sqrt(2 * np.pi))
+                        * np.exp(-0.5 * ((score_grid - mean) / sigma) ** 2)
+                    )
                     fig.add_trace(go.Scatter(
-                        x=sample_axis,
-                        y=np.nanmedian(component_shapes, axis=0),
+                        x=score_grid,
+                        y=component_density,
                         mode="lines",
-                        name=name,
-                        legendgroup=name,
-                        showlegend=name not in legend_seen,
-                        line={"color": color, "width": 2.5},
-                    ), row=row, col=col)
-                    legend_seen.add(name)
+                        name=label,
+                        legendgroup=label,
+                        showlegend=label not in legend_seen,
+                        line={"color": colors[color_key], "width": 2.2},
+                        hovertemplate=(
+                            f"{label}<br>mean={mean:.4f}<br>"
+                            f"fraction={weight:.1%}<extra></extra>"
+                        ),
+                    ), row=row_number, col=1)
+                    legend_seen.add(label)
+                    add_waveform_band(
+                        shapes[local_components == component],
+                        row_number,
+                        color_key,
+                        label,
+                    )
+            else:
+                add_waveform_band(
+                    shapes,
+                    row_number,
+                    "unsplit",
+                    "No supported split: all events",
+                )
 
+            row_center = 1 - (row_number - 0.5) / config.energy_bins
+            status = "TWO BRANCHES" if supported else "no supported split"
+            fig.add_annotation(
+                x=-0.025,
+                y=row_center,
+                xref="paper",
+                yref="paper",
+                text=(
+                    f"E {row_data['energy_low']:.0f}–{row_data['energy_high']:.0f}"
+                    f"<br>n={row_data['n']} · {status}"
+                ),
+                showarrow=False,
+                xanchor="right",
+                align="right",
+                font={"size": 11},
+            )
+
+            fig.update_xaxes(range=score_range, row=row_number, col=1)
+            fig.update_yaxes(showticklabels=False, title_text="", row=row_number, col=1)
+            fig.update_xaxes(
+                range=[config.integration_start, config.integration_stop - 1],
+                row=row_number,
+                col=2,
+            )
+            fig.update_yaxes(
+                range=[-0.10, 1.08],
+                tickvals=[0, 0.5, 1.0],
+                row=row_number,
+                col=2,
+            )
+
+        fig.add_annotation(
+            x=0.205,
+            y=1.015,
+            xref="paper",
+            yref="paper",
+            text="Distribution of late-area score",
+            showarrow=False,
+            font={"size": 13},
+        )
+        fig.add_annotation(
+            x=0.735,
+            y=1.015,
+            xref="paper",
+            yref="paper",
+            text="Normalized waveform: median and 10–90% band",
+            showarrow=False,
+            font={"size": 13},
+        )
+        fig.update_xaxes(
+            title_text="Late-area score: area[40:100] / area[15:100]",
+            row=config.energy_bins,
+            col=1,
+        )
+        fig.update_xaxes(
+            title_text="Aligned sample index",
+            row=config.energy_bins,
+            col=2,
+        )
+        fig.update_yaxes(
+            title_text="Peak-normalized amplitude",
+            row=(config.energy_bins + 1) // 2,
+            col=2,
+        )
         fig.update_layout(
-            title=(
-                f"Cf normalized-form densities by ROOT Energy — CH{channel}: "
-                f"{DETECTOR_LABELS[channel]}"
-            ),
+            title={
+                "text": (
+                    f"Cf shape comparison within narrow ROOT Energy intervals — "
+                    f"CH{channel}: {DETECTOR_LABELS[channel]}"
+                    "<br><sup>Each row fixes Energy; branch colors appear only when "
+                    "all statistical criteria pass</sup>"
+                ),
+                "x": 0.01,
+                "xanchor": "left",
+            },
             template="plotly_white",
-            height=300 * subplot_rows + 150,
+            height=205 * config.energy_bins + 260,
+            margin={"l": 180, "r": 45, "t": 175, "b": 90},
             dragmode="zoom",
-            coloraxis={
-                "colorscale": "Viridis",
-                "colorbar": {"title": "event fraction / amplitude bin"},
+            hovermode="closest",
+            legend={
+                "orientation": "h",
+                "x": 0,
+                "xanchor": "left",
+                "y": 1.055,
+                "yanchor": "bottom",
+                "font": {"size": 12},
             },
         )
-        fig.update_xaxes(title_text="Aligned sample index", row=subplot_rows)
-        fig.update_yaxes(title_text="Peak-normalized amplitude", col=1)
         html_path = paths.output_dir / f"cf_energy_binned_forms_CH{channel}_{tag}.html"
         fig.write_html(html_path, config=PLOTLY_CONFIG, include_plotlyjs="directory")
         fig.show(renderer="plotly_mimetype", config=PLOTLY_CONFIG)
