@@ -3,6 +3,31 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Record low-SNR selection bias for the final report
+
+**Task:** explicitly document that the current QC mask excludes small-amplitude,
+low-SNR events and that this region must remain in scope for the new PSD algorithm.
+
+**Changes:** added a prominent notebook warning explaining that `low_snr` events remain
+stored but are excluded from `quality_ok`; created `docs/REPORT_NOTES.md` with mandatory
+report analyses; recorded a durable decision that low-SNR is a diagnostic stratum rather
+than permanent rejection; updated project status and next steps.
+
+**Finding/assumption:** `SNR < 20` flags 144/10,000 sampled events (1.44%), predominantly
+at small amplitude. Amplitude is only an energy proxy until joined to ROOT `Energy` and
+calibrated. Removing these events may bias evaluation away from the low-energy region
+where improvement over classical PSD is most important.
+
+**Verification:** validated notebook JSON and checked that both the preprocessing and QC
+methodology markdown cells contain the new caveat. No processing values or outputs were
+changed.
+
+**Files created/modified:** `docs/REPORT_NOTES.md`, `csv_data_processing.ipynb`,
+`docs/DECISIONS.md`, `docs/PROJECT_CONTEXT.md`, and `docs/WORKLOG.md`.
+
+**Next step:** attach ROOT energy metadata, quantify QC acceptance versus energy, and
+benchmark both methods with and without the SNR cut.
+
 ## 2026-07-20 — Visualize all QC-flagged waveforms
 
 **Task:** show in `csv_data_processing.ipynb` every signal marked by at least one

@@ -76,6 +76,7 @@ baseline, timing, and other acquisition artifacts.
 - `docs/signal_processing_plan.md` — full staged research plan.
 - `docs/DECISIONS.md` — durable technical and scientific decisions.
 - `docs/WORKLOG.md` — chronological handoffs from all Codex tasks.
+- `docs/REPORT_NOTES.md` — mandatory caveats and analyses for the eventual project report.
 - `gamma_n_data/` — data, run metadata, notebooks, and ROOT inspection/plotting tools.
 - `gamma_n_data/CSV/` — waveform-only CSV exports and their format description.
 - `gamma_n_data/export_waveforms_csv.py` — streaming ROOT-to-CSV exporter.
@@ -98,6 +99,9 @@ baseline, timing, and other acquisition artifacts.
 - Check domain/run leakage before interpreting `G` versus `M` separation physically.
 - Until independent neutron labels exist, call outputs neutron-like scores or candidates,
   not calibrated neutron probabilities.
+- Treat `low_snr` as a diagnostic stratum, not permanent rejection. Report QC acceptance
+  and algorithm performance versus amplitude/calibrated energy, with and without the
+  current `SNR < 20` cut.
 - Establish an interpretable PSD baseline before using a 1D CNN.
 
 ## Next steps
@@ -106,8 +110,10 @@ baseline, timing, and other acquisition artifacts.
    meaning of `RAW`/`FILTERED`/`UNFILTERED` in the presence of the Cf PSD cuts.
 2. Add a background run plus independent repeated `60Co` and `252Cf` runs; complete-run
    validation is impossible with only one run of each condition.
-3. Re-audit the chosen preprocessing on independent complete runs and add the remaining
+3. Join waveforms to ROOT `Energy`, establish the amplitude–energy relation, and quantify
+   QC acceptance versus energy, especially for the 144 current `low_snr` events.
+4. Re-audit the chosen preprocessing on independent complete runs and add the remaining
    metadata/rejection and energy-stratified diagnostics per channel.
-4. Implement the classical PSD benchmark described in `docs/signal_processing_plan.md`.
-5. Only after leakage checks, build interpretable shape features and compare them with
+5. Implement the classical PSD benchmark described in `docs/signal_processing_plan.md`.
+6. Only after leakage checks, build interpretable shape features and compare them with
    classical PSD; defer 1D CNN work until stable candidate labels exist.

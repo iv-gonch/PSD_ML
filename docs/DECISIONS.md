@@ -15,6 +15,24 @@ tasks in the project can read and update the same workspace.
 **Consequence:** every material task must read shared memory at startup and publish a
 handoff before finishing, as required by the root `AGENTS.md`.
 
+## 2026-07-20 — Do not treat low-SNR events as permanently rejected
+
+**Decision:** `low_snr` remains a diagnostic QC flag. Although the current convenience
+mask `quality_ok` excludes events with `SNR < 20` from aggregate clean-shape summaries,
+those events must remain stored, inspectable, and available as a separate analysis
+stratum. Future PSD/model evaluation must be reported both with and without this cut and
+must include dedicated low-energy metrics.
+
+**Rationale:** the cut currently marks 144/10,000 sampled events and preferentially
+selects small-amplitude pulses. Small amplitude is an energy proxy pending calibration,
+so unconditional rejection can remove low-energy gamma and neutron events in precisely
+the region motivating improvement over classical PSD.
+
+**Consequence:** quantify QC acceptance versus amplitude and calibrated energy, validate
+the amplitude–energy relationship using ROOT metadata, document threshold sensitivity,
+and include the requirements in `docs/REPORT_NOTES.md`. Do not describe `quality_ok` as
+the final scientific acceptance selection.
+
 ## 2026-07-17 — Keep implementation in a project Python library
 
 **Decision:** new processing logic is implemented as functions in the project-local
