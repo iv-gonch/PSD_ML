@@ -3,6 +3,49 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Search for normalized-form branches in narrow Cf Energy intervals
+
+**Task:** for every Cf channel separately, plot normalized-form distributions in narrow
+energy intervals and test whether two stable waveform branches appear.
+
+**Changes:** added audited CSV↔ROOT `Energy`/`EnergyShort` joining, deterministic
+single-run channel-balanced sampling, an interpretable normalized late-area score,
+per-bin one/two-Gaussian comparison, bootstrap and cross-bin shape-repeatability tests,
+8/10/12-bin sensitivity analysis, CSV summaries, and ten interactive Plotly figures to
+`psd_ml/pipeline.py`. Added a fully reproducible stage to `csv_data_processing.ipynb`;
+the notebook contains only parameters and library calls. Artifact filenames now include
+sample size and seed to avoid collisions between experimental scopes.
+
+**Findings:** all 25,000 sampled CSV waveforms exactly match their ROOT `Samples` branch.
+After excluding structural QC failures, usable counts are CH0 4,888; CH2 4,912; CH3
+4,959; CH4 4,926; CH5 4,997, while retaining respectively 1/0/210/387/4 low-SNR events.
+The 12-bin primary analysis supports stable branches for CH2/CH3/CH4/CH5, but not CH0.
+Those four channels remain stable for all 8/10/12 partitions; CH0 passes at 8 and 10
+bins but fails at 12, so it meets the formal two-of-three rule while remaining weaker in
+the narrowest intervals. Lowest-Energy intervals generally do not resolve two branches. The higher-tail
+component is roughly 2–8% in supported intervals; branch-difference cosine is 0.94–1.00.
+Amplitude correlates with uncalibrated Energy at 0.9979–0.9993; the new score correlates
+with classical ROOT PSD at 0.6428–0.7695.
+
+**Interpretation/limitations:** the components are not particle labels. Rare higher-tail
+events may still include residual pileup, noise, or acquisition-selection effects. Only
+one Cf run exists, so run-to-run reproducibility and physical neutron/gamma identity are
+unresolved. Current evidence does not solve the low-energy overlap region.
+
+**Verification:** compiled the package; executed the complete notebook without
+errors; verified 25,000 event rows, 60 primary bin rows, 5 channel verdict rows, 15
+binning-sensitivity rows, 10 standalone HTML plots, and native Plotly MIME outputs in
+the notebook. Exact ROOT waveform verification was enabled for every sampled event.
+
+**Files modified:** `psd_ml/pipeline.py`, `psd_ml/__init__.py`,
+`csv_data_processing.ipynb`, `docs/DECISIONS.md`, `docs/PROJECT_CONTEXT.md`,
+`docs/REPORT_NOTES.md`, and `docs/WORKLOG.md`. Generated data/HTML outputs under
+`gamma_n_data/samples/` remain ignored.
+
+**Recommended next step:** compare candidate branches with the Co control and classical
+PSD within the same Energy strata, inspect rare higher-tail waveforms for residual
+pileup, calibrate Energy, and repeat on an independent Cf run.
+
 ## 2026-07-20 — Record low-SNR selection bias for the final report
 
 **Task:** explicitly document that the current QC mask excludes small-amplitude,

@@ -15,6 +15,35 @@ tasks in the project can read and update the same workspace.
 **Consequence:** every material task must read shared memory at startup and publish a
 handoff before finishing, as required by the root `AGENTS.md`.
 
+## 2026-07-20 — Test Cf shape branches inside channel-specific Energy strata
+
+**Decision:** join a sampled CSV waveform to ROOT `Energy` and `EnergyShort` by its
+preserved source-entry number, and require exact equality of all 144 CSV/ROOT waveform
+samples before using that join. Treat `Energy` as an uncalibrated instrument value until
+an external calibration is available.
+
+For the initial branch search, use a deterministic Cf-only sample of 5,000 events per
+channel and analyze channels separately. Divide each channel into 12 equal-count Energy
+intervals; calculate a peak-normalized late-area score (positive area in samples 40:100
+divided by positive area in 15:100); and compare one- and two-Gaussian fits independently
+inside each interval. Retain `low_snr` events, but exclude structural failures. Require
+ΔBIC ≥ 10, separation ≥ 2, at least 8 assigned events per component, bootstrap support
+≥ 0.70, at least three supported intervals including three consecutive intervals, and
+median branch-shape cosine ≥ 0.80. Repeat the verdict for 8, 10, and 12 intervals and
+require agreement in at least two of three binnings for binning-robust evidence.
+
+**Rationale:** energy stratification prevents a simple amplitude/energy trend from being
+misread as particle-dependent shape, while fixed mixture and repeatability criteria make
+the branch claim auditable. Exact waveform verification turns the positional metadata
+join into a checked interface. Low-SNR retention keeps the scientifically important
+low-energy region in scope.
+
+**Consequence:** call the fitted groups lower- and higher-tail shape components, not
+gamma and neutron classes. Current stability is within one Cf acquisition across
+neighboring energy intervals, bootstrap resamples, and bin counts; it is not independent
+run reproducibility. Generated filenames include the sample size and seed so analyses
+with different sampling scopes cannot silently overwrite one another.
+
 ## 2026-07-20 — Do not treat low-SNR events as permanently rejected
 
 **Decision:** `low_snr` remains a diagnostic QC flag. Although the current convenience

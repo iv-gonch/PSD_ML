@@ -51,6 +51,22 @@ baseline, timing, and other acquisition artifacts.
   output branches, and non-destructive QC flags. Generated processed waveforms, features,
   group audit CSV, and five channel-level shape-summary HTML files are under
   `gamma_n_data/samples/`.
+- The notebook now also performs a channel-separated Cf shape-branch search on a
+  deterministic 25,000-event sample (5,000 per channel). CSV rows are joined to ROOT
+  `Energy`/`EnergyShort` by provenance and all 144 waveform samples are verified exactly.
+  Twelve equal-count Energy intervals per channel are analyzed with a peak-normalized
+  late-area score, one-versus-two Gaussian BIC, component separation, minimum-size and
+  bootstrap criteria. `low_snr` events are retained; only structural QC failures are
+  excluded.
+- Two shape components pass all 8/10/12 Energy-bin choices for CH2, CH3, CH4, and CH5.
+  CH0 passes the formal two-of-three sensitivity rule at 8 and 10 bins, but fails the
+  narrowest 12-bin primary analysis because supported intervals are not sufficiently
+  consecutive; its evidence is therefore weaker and needs more statistics. The lowest
+  Energy intervals generally remain unresolved. Higher-tail candidates are a minority
+  and must not yet be interpreted as neutrons. Only one Cf run is available.
+- ROOT `Energy` is currently uncalibrated but correlates strongly with waveform amplitude
+  in the Cf analysis sample (Pearson 0.9979–0.9993 by channel). The waveform-only shape
+  score is related to but not identical to CoMPASS PSD (correlations 0.6428–0.7695).
 - Audit evidence: no sampled ADC clipping; median baseline RMS 3.136 ADC; 95% absolute
   baseline slope 0.584 ADC/sample; raw CFD-50 1–99% range 16.62–25.10 samples; relative
   tail residual 95/99% quantiles 1.31%/3.10%; post-alignment 99% CFD error 0.2355 sample.
@@ -82,7 +98,8 @@ baseline, timing, and other acquisition artifacts.
 - `gamma_n_data/export_waveforms_csv.py` — streaming ROOT-to-CSV exporter.
 - `csv_data_processing.ipynb` — executable, ordered CSV processing pipeline.
 - `psd_ml/pipeline.py` — reusable implementation of sampling, audit, preprocessing,
-  validation, persistence, and Plotly stages called by the notebook.
+  validation, ROOT metadata joins, energy-stratified branch analysis, persistence, and
+  Plotly stages called by the notebook.
 - `gamma_n_data/samples/` — reproducibly generated test samples and figures.
 - `gamma_n_data/JUPYTER.md` — notebook usage notes.
 - `gamma_n_data/VIEW_ROOT_FILES.md` — ROOT file viewing instructions.
@@ -110,10 +127,14 @@ baseline, timing, and other acquisition artifacts.
    meaning of `RAW`/`FILTERED`/`UNFILTERED` in the presence of the Cf PSD cuts.
 2. Add a background run plus independent repeated `60Co` and `252Cf` runs; complete-run
    validation is impossible with only one run of each condition.
-3. Join waveforms to ROOT `Energy`, establish the amplitude–energy relation, and quantify
-   QC acceptance versus energy, especially for the 144 current `low_snr` events.
-4. Re-audit the chosen preprocessing on independent complete runs and add the remaining
-   metadata/rejection and energy-stratified diagnostics per channel.
-5. Implement the classical PSD benchmark described in `docs/signal_processing_plan.md`.
-6. Only after leakage checks, build interpretable shape features and compare them with
-   classical PSD; defer 1D CNN work until stable candidate labels exist.
+3. Calibrate ROOT `Energy` physically and quantify every QC acceptance curve versus
+   Energy, especially for the low-SNR stratum retained in the branch analysis.
+4. Investigate whether the rare higher-tail component is physical or residual pileup /
+   acquisition selection; compare it with Co and the full classical PSD distribution,
+   and resolve the binning-sensitive CH0 result.
+5. Re-audit preprocessing and the two-branch result on independent complete runs.
+6. Implement the classical PSD benchmark described in `docs/signal_processing_plan.md`
+   and report performance in fixed energy strata, including the unresolved low-energy
+   region.
+7. Only after leakage checks and physical validation, build further interpretable shape
+   features; defer 1D CNN work until stable candidate labels exist.
