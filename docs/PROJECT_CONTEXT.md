@@ -18,6 +18,10 @@ baseline, timing, and other acquisition artifacts.
 ## Current state
 
 - The detailed analysis plan is saved in `docs/signal_processing_plan.md`.
+- The proposed real-time extension is specified in `docs/adaptive_psd_plan.md`: measured
+  PMT voltage/temperature/field enter a condition-aware classifier; guarded domain
+  adaptation is a later residual correction, while MPC is reserved for a separate
+  physical-control loop with actuators and an independent calibration reference.
 - Experimental material and ROOT-file exploration utilities are under `gamma_n_data/`.
 - A Python virtual environment exists at `.venv/`.
 - Git is initialized on branch `main`; the public remote is
@@ -104,6 +108,8 @@ baseline, timing, and other acquisition artifacts.
 ## Important paths
 
 - `docs/signal_processing_plan.md` — full staged research plan.
+- `docs/adaptive_psd_plan.md` — condition-aware inference, domain adaptation, online
+  safety, voltage-sweep validation, and the optional MPC control layer.
 - `docs/DECISIONS.md` — durable technical and scientific decisions.
 - `docs/WORKLOG.md` — chronological handoffs from all Codex tasks.
 - `docs/REPORT_NOTES.md` — mandatory caveats and analyses for the eventual project report.
@@ -154,3 +160,7 @@ baseline, timing, and other acquisition artifacts.
    optimize it only on training/validation runs, and compare logistic regression and
    gradient boosting with classical PSD. Then test PCA/shapelets/MiniROCKET; defer 1D CNN
    work until stable candidate labels and independent runs exist.
+8. Before online adaptation, collect randomized repeated Co/Cf/background/calibration
+   runs over a safe PMT-voltage grid, recording setpoint/readback and environmental
+   telemetry. Compare gain correction, explicit condition inputs, adapters, and domain
+   adaptation using held-out runs and held-out conditions.

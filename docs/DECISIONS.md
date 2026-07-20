@@ -4,6 +4,26 @@ This file records durable decisions shared by all project tasks. New entries sho
 the date, decision, rationale, and consequences. If a decision is superseded, retain it
 and point to the replacing entry.
 
+## 2026-07-20 — Separate condition-aware PSD, online adaptation, and detector control
+
+**Decision:** develop the future real-time system as three distinct layers: fast
+condition-aware pulse classification, slow guarded adaptation/calibration, and an
+optional physical-control loop. Known PMT voltage and other measured conditions are
+explicit model inputs. Domain adaptation is a comparative method after controlled
+multi-condition data exist; unconstrained test-time self-training is not the initial
+solution. MPC is considered only when the system can actuate detector settings and has
+an identified dynamic model plus an independent calibration reference.
+
+**Rationale:** measured conditions contain useful information that should not be erased
+by forced domain invariance. Co and Cf have different and changing class proportions, so
+unconditional marginal alignment can remove the rare physical component. MPC solves a
+constrained control problem; it does not itself classify pulses.
+
+**Consequence:** collect repeated, randomized voltage-sweep runs before adaptation work;
+validate by complete run and held-out condition. Any online adapter requires a frozen
+reference, bounded updates, OOD/unknown handling, audit logs, rollback, and shadow-mode
+validation. The detailed plan is `docs/adaptive_psd_plan.md`.
+
 ## 2026-07-20 — Require rendered-image QA for dense Plotly layouts
 
 **Decision:** figures with multiple subplots, annotations, or external legends must be

@@ -3,6 +3,37 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Assess domain adaptation and MPC for adaptive real-time PSD
+
+**Task:** determine whether domain adaptation and model predictive control support a
+real-time PSD system that follows known PMT voltage and, eventually, temperature,
+magnetic field, and other operating conditions.
+
+**Conclusion:** the idea extends the current static study naturally, but requires three
+separate layers. A fast classifier should explicitly condition on measured operating
+state; a slow, guarded adaptation layer may correct residual domain shift; MPC is useful
+only for an actuator-equipped loop that stabilizes the detector using an independent
+calibration reference. MPC is not a pulse classifier. Current single Co/Cf runs are
+insufficient to train or validate adaptation.
+
+**Design constraints:** collect randomized repeated voltage-sweep Co/Cf/background and
+calibration runs; validate by held-out full runs and held-out conditions. Do not align Co
+and Cf mixtures marginally because changing class proportions can erase the rare
+component. Any online adaptation needs frozen baseline, bounded updates, OOD/unknown,
+replay/anchors, rollback, and shadow mode.
+
+**Files created/modified:** `docs/adaptive_psd_plan.md`, `docs/DECISIONS.md`,
+`docs/PROJECT_CONTEXT.md`, `docs/REPORT_NOTES.md`, and `docs/WORKLOG.md`.
+
+**Verification:** cross-checked the proposal against the current run-separated research
+plan and primary literature on domain-adversarial learning, limitations of invariant
+representations, continual test-time adaptation, constrained MPC, and PMT environmental
+sensitivity.
+
+**Recommended next step:** finish the static classical-PSD/ML baseline, then design a
+safe repeated voltage-sweep acquisition before implementing domain adaptation or online
+weight updates.
+
 ## 2026-07-20 — Repair and visually verify Cf figure layouts
 
 **Task:** fix self-overlapping legends in `cf_energy_shape_score_figures`, move the
