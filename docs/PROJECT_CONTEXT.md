@@ -26,8 +26,9 @@ baseline, timing, and other acquisition artifacts.
 - Available acquisitions currently comprise one 30-minute `60Co` gamma-control run and
   one 60-minute `252Cf` mixed neutron/gamma run, on channels 0, 2, 3, 4, and 5.
 - `Data_*.root` files contain a `Data` TTree with `Energy`, `EnergyShort`, timestamps,
-  flags, and 144-sample waveforms. The recorded `sampleTime` setting is 2000; its unit
-  still needs experimental confirmation.
+  flags, and 144-sample waveforms. The recorded `sampleTime=2000` is consistent with
+  2000 ps = 2 ns per sample: 70/20/30 waveform samples reproduce the configured
+  140/40/60 ns QDC gates.
 - The current CoMPASS PSD is reproducible as
   `(Energy - EnergyShort) / Energy`; configured long/short gates are 140/40 ns, with a
   60 ns short-gate override on channels 4 and 5, and a 10 ns pre-gate.
@@ -69,9 +70,16 @@ baseline, timing, and other acquisition artifacts.
   and normalized waveform median with a 10–90% band on the right. A fixed top legend and
   separate row labels replace the overlapping subplot titles. The notebook explains how
   to read both columns and why Energy is held approximately fixed within each row.
-- ROOT `Energy` is currently uncalibrated but correlates strongly with waveform amplitude
-  in the Cf analysis sample (Pearson 0.9979–0.9993 by channel). The waveform-only shape
-  score is related to but not identical to CoMPASS PSD (correlations 0.6428–0.7695).
+- ROOT `Energy` is not an independent label: it is the recorded firmware `Qlong` charge
+  integral; `EnergyShort` is `Qshort`. Settings use 140 ns long, 40 ns short gates
+  (60 ns for CH4/CH5), 10 ns pre-gate, identity calibration, and `ADCCH` output. Offline
+  integration of samples `[15:85]`, `[15:35]`, or `[15:45]` reproduces these fields with
+  correlation 0.99997–1.00000 and scale approximately 1/32. Values are therefore ADC
+  channels, not calibrated keV, even though `run.info` carries a formal `keV` label.
+- The current `shape_score = positive_area[40:100] / positive_area[15:100]` is a
+  deliberately simple PSD-like demonstration feature, not an optimized `new_PSD`. It is
+  related to but not identical to CoMPASS PSD (correlations 0.6428–0.7695). The notebook
+  now explains both score plots and records the required ML/window-optimization stage.
 - Audit evidence: no sampled ADC clipping; median baseline RMS 3.136 ADC; 95% absolute
   baseline slope 0.584 ADC/sample; raw CFD-50 1–99% range 16.62–25.10 samples; relative
   tail residual 95/99% quantiles 1.31%/3.10%; post-alignment 99% CFD error 0.2355 sample.
@@ -128,12 +136,12 @@ baseline, timing, and other acquisition artifacts.
 
 ## Next steps
 
-1. Confirm the unit of `sampleTime=2000`, pulse polarity, source geometry, and the
-   meaning of `RAW`/`FILTERED`/`UNFILTERED` in the presence of the Cf PSD cuts.
+1. Confirm pulse polarity, source geometry, and the meaning of
+   `RAW`/`FILTERED`/`UNFILTERED` in the presence of the Cf PSD cuts.
 2. Add a background run plus independent repeated `60Co` and `252Cf` runs; complete-run
    validation is impossible with only one run of each condition.
-3. Calibrate ROOT `Energy` physically and quantify every QC acceptance curve versus
-   Energy, especially for the low-SNR stratum retained in the branch analysis.
+3. Calibrate recorded `Qlong` physically and quantify every QC acceptance curve versus
+   calibrated energy, especially for the low-SNR stratum retained in the branch analysis.
 4. Investigate whether the rare higher-tail component is physical or residual pileup /
    acquisition selection; compare it with Co and the full classical PSD distribution,
    and resolve the binning-sensitive CH0 result.
@@ -141,5 +149,7 @@ baseline, timing, and other acquisition artifacts.
 6. Implement the classical PSD benchmark described in `docs/signal_processing_plan.md`
    and report performance in fixed energy strata, including the unresolved low-energy
    region.
-7. Only after leakage checks and physical validation, build further interpretable shape
-   features; defer 1D CNN work until stable candidate labels exist.
+7. Build a leakage-controlled bank of interpretable multi-window/time-domain features,
+   optimize it only on training/validation runs, and compare logistic regression and
+   gradient boosting with classical PSD. Then test PCA/shapelets/MiniROCKET; defer 1D CNN
+   work until stable candidate labels and independent runs exist.

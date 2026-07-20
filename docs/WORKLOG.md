@@ -3,6 +3,43 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Clarify QDC Energy, shape_score, and plot labels
+
+**Task:** explain how ROOT Energy is calculated, document the meaning of
+`cf_energy_shape_score_figures`, fix remaining overlap/axis/abbreviation issues in
+`cf_energy_binned_form_figures`, and record that the manual score requires ML-based
+follow-up.
+
+**Findings:** `settings.xml` identifies QDC long/short gates of 140/40 ns, with a 60 ns
+short-gate override on CH4/CH5, a 10 ns pre-gate, and `ADCCH` output. Identity
+calibration is merely labelled `keV`. On the deterministic 25,000-event Cf sample,
+baseline-subtracted positive integrals `[15:85]`, `[15:35]`, and `[15:45]` reproduce
+ROOT `Energy`/`EnergyShort` with correlations 0.99997–1.00000, fitted scale about 1/32,
+and normalized RMSE 0.0015–0.0073. The fields are recorded Qlong/Qshort, not independent
+particle-energy truth.
+
+**Changes:** added a reusable Energy-field audit and notebook output; added detailed
+notebook sections for QDC semantics, every mark in the score figures, the heuristic
+15/40/100 windows, statistical coupling, and the required ML study. Score plots now use
+explicit Qlong/tail-fraction axes, bin boundaries, explanatory subtitles, and clearer
+legend names. Binned figures use shorter non-overlapping column headings, explicit
+`Qlong … ADC ch` and event-count row labels, visible 0–1 relative-density ticks and axis
+label, and no unexplained `E`/`n` abbreviations.
+
+**Verification:** compiled the library and executed the 31-cell notebook without errors;
+verified the ten QDC audit rows, five revised score figures, five revised binned-form
+figures, axis titles, 12 explicit row labels per channel, and regenerated standalone
+HTML files. The browser surface remains unavailable, so plot layout was validated from
+the executed Plotly structure and increased spacing/margins.
+
+**Files modified:** `psd_ml/pipeline.py`, `psd_ml/__init__.py`,
+`csv_data_processing.ipynb`, `docs/DECISIONS.md`, `docs/PROJECT_CONTEXT.md`,
+`docs/REPORT_NOTES.md`, and `docs/WORKLOG.md`.
+
+**Recommended next step:** implement the classical PSD benchmark and a run-separated
+feature/ML experiment, including nested window optimization, alternative energy
+estimators, Co false-positive control, and explicit low-energy metrics.
+
 ## 2026-07-20 — Redesign Cf Energy-binned form comparison plots
 
 **Task:** make `cf_energy_binned_form_figures` informative, eliminate overlapping text,

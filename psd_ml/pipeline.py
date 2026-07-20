@@ -76,6 +76,11 @@ class EnergyShapeConfig:
     tail_start: int = 40
     integration_stop: int = 100
     shape_score_density_bins: int = 48
+    sample_period_ns: float = 2.0
+    qdc_gate_start: int = 15
+    qdc_long_samples: int = 70
+    qdc_short_samples: int = 20
+    qdc_short_samples_ch4_ch5: int = 30
     bic_delta_threshold: float = 10.0
     separation_threshold: float = 2.0
     min_component_events: int = 8
@@ -192,6 +197,11 @@ class EnergyShapeAnalysis:
 class EnergyBinningSensitivity:
     rows: tuple[dict[str, object], ...]
     channel_rows: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
+class EnergyFieldAudit:
+    rows: tuple[dict[str, object], ...]
 
 
 def configure_plotly() -> None:
@@ -643,6 +653,105 @@ def save_root_event_metadata(
     print("ROOT metadata:", output.relative_to(paths.root))
     print(f"Проверено совпадение CSV↔ROOT: {metadata.waveform_matches.sum():,} событий")
     return output
+
+
+def audit_recorded_energy_fields(
+    sample: Sample,
+    metadata: RootEventMetadata,
+    pipeline_config: PipelineConfig,
+    energy_config: EnergyShapeConfig,
+) -> EnergyFieldAudit:
+    """Verify that ROOT Energy fields reproduce fixed-window waveform integrals.
+
+    CoMPASS stores its firmware QDC outputs, rather than an energy independently
+    measured from the waveform. The calculation below is an offline approximation using
+    the recorded trace baseline; the firmware may use a different running baseline and
+    rounding. Correlation, fitted scale, and normalized residual quantify the agreement.
+    """
+
+    baseline = np.median(
+        sample.waveforms[:, : pipeline_config.baseline_samples], axis=1
+    )
+    positive_signal = np.clip(
+        baseline[:, None] - sample.waveforms.astype(float), 0, None
+    )
+    rows = []
+
+    for channel in sorted(DETECTOR_LABELS):
+        indices = np.flatnonzero(sample.channels == channel)
+        short_samples = (
+            energy_config.qdc_short_samples_ch4_ch5
+            if channel in (4, 5)
+            else energy_config.qdc_short_samples
+        )
+        windows = (
+            (
+                "Energy (Qlong)",
+                metadata.energy[indices].astype(float),
+                energy_config.qdc_long_samples,
+            ),
+            (
+                "EnergyShort (Qshort)",
+                metadata.energy_short[indices].astype(float),
+                short_samples,
+            ),
+        )
+        for field, recorded, window_samples in windows:
+            start = energy_config.qdc_gate_start
+            waveform_integral = positive_signal[
+                indices, start : start + window_samples
+            ].sum(axis=1)
+            design = np.column_stack([
+                waveform_integral,
+                np.ones(len(waveform_integral)),
+            ])
+            slope, intercept = np.linalg.lstsq(
+                design, recorded, rcond=None
+            )[0]
+            prediction = design @ np.array([slope, intercept])
+            normalized_rmse = float(
+                np.sqrt(np.mean((prediction - recorded) ** 2))
+                / np.std(recorded)
+            )
+            rows.append({
+                "channel": channel,
+                "detector_label": DETECTOR_LABELS[channel],
+                "field": field,
+                "start_sample": start,
+                "stop_sample_exclusive": start + window_samples,
+                "window_samples": window_samples,
+                "window_ns": window_samples * energy_config.sample_period_ns,
+                "correlation": float(
+                    np.corrcoef(waveform_integral, recorded)[0, 1]
+                ),
+                "fitted_scale": float(slope),
+                "fitted_offset": float(intercept),
+                "normalized_rmse": normalized_rmse,
+            })
+    return EnergyFieldAudit(tuple(rows))
+
+
+def print_recorded_energy_audit(audit: EnergyFieldAudit) -> None:
+    """Explain and print the empirical QDC-to-ROOT Energy agreement."""
+
+    print("ROOT Energy fields are recorded CoMPASS QDC integrals, not external labels.")
+    print(
+        "Offline check: ROOT field ≈ scale × sum(baseline − ADC) + offset; "
+        "the exact firmware baseline/rounding can differ."
+    )
+    print(
+        "channel | ROOT field | waveform window | correlation | scale | "
+        "offset | normalized RMSE"
+    )
+    for row in audit.rows:
+        print(
+            f"CH{row['channel']} {row['detector_label']:24s} | "
+            f"{row['field']:22s} | "
+            f"[{row['start_sample']}:{row['stop_sample_exclusive']}] "
+            f"({row['window_ns']:.0f} ns) | "
+            f"{row['correlation']:.5f} | {row['fitted_scale']:.6f} | "
+            f"{row['fitted_offset']:+.2f} | {row['normalized_rmse']:.4f}"
+        )
 
 
 def _conservative_multipeak_flags(signals: np.ndarray) -> np.ndarray:
@@ -1501,9 +1610,12 @@ def assess_energy_binning_sensitivity(
 def print_energy_shape_analysis(analysis: EnergyShapeAnalysis) -> None:
     """Print channel-level verdicts and auditable per-bin mixture diagnostics."""
 
-    print("Cf: проверка двух ветвей формы внутри равностатистических Energy-интервалов")
     print(
-        "channel | usable (low-SNR kept) | E range | r(amplitude,E) | "
+        "Cf: проверка двух ветвей формы внутри равностатистических интервалов "
+        "записанного Qlong (ROOT Energy)"
+    )
+    print(
+        "channel | usable (low-SNR kept) | Qlong range | r(amplitude,Qlong) | "
         "r(shape,classic PSD) | supported/consecutive bins | shape cosine | stable"
     )
     for row in analysis.channel_rows:
@@ -1519,11 +1631,12 @@ def print_energy_shape_analysis(analysis: EnergyShapeAnalysis) -> None:
             f"{cosine_text} | {bool(row['stable_two_branch_evidence'])}"
         )
 
-    print("\nПоканальные интервалы (Energy — приборные, некалиброванные единицы):")
+    print("\nПоканальные интервалы записанного Qlong (ROOT Energy, ADC channels):")
     for row in analysis.bin_rows:
         print(
             f"CH{row['channel']} bin{row['energy_bin']} "
-            f"[{row['energy_low']:.0f}, {row['energy_high']:.0f}] n={row['n']:4d} | "
+            f"Qlong [{row['energy_low']:.0f}, {row['energy_high']:.0f}] "
+            f"events={row['n']:4d} | "
             f"weights={row['component_0_weight']:.3f}/{row['component_1_weight']:.3f} | "
             f"means={row['component_0_mean']:.4f}/{row['component_1_mean']:.4f} | "
             f"ΔBIC={row['bic_delta']:.1f} D={row['separation']:.2f} "
@@ -1636,7 +1749,7 @@ def plot_energy_shape_scores(
     config: EnergyShapeConfig,
     random_seed: int,
 ) -> list[go.Figure]:
-    """Plot waveform-only shape score versus uncalibrated ROOT Energy by Cf channel."""
+    """Plot the heuristic late-area fraction versus recorded Qlong by Cf channel."""
 
     figures = []
     row_lookup = {
@@ -1659,16 +1772,24 @@ def plot_energy_shape_scores(
             x=analysis.energy[indices],
             y=analysis.shape_score[indices],
             mode="markers",
-            name="all shape-usable",
+            name="All structurally usable Cf events",
             marker={"size": 4, "color": "#7f7f7f", "opacity": 0.25},
             customdata=custom,
             hovertemplate=(
-                "Energy=%{x:.0f}<br>shape score=%{y:.4f}<br>"
+                "recorded Qlong=%{x:.0f} ADC channels<br>"
+                "tail fraction=%{y:.4f}<br>"
                 "sample_row=%{customdata[0]}<br>source_row=%{customdata[1]}<br>"
-                "energy bin=%{customdata[2]}<br>low_snr=%{customdata[3]}"
+                "Qlong interval=%{customdata[2]}<br>low_snr=%{customdata[3]}"
                 "<extra></extra>"
             ),
         ))
+
+        for boundary in analysis.bin_edges[channel][1:-1]:
+            fig.add_vline(
+                x=float(boundary),
+                line={"color": "rgba(80,80,80,0.18)", "width": 1},
+                layer="below",
+            )
 
         supported_high = []
         for bin_index in range(config.energy_bins):
@@ -1683,8 +1804,8 @@ def plot_energy_shape_scores(
             )
             supported_high.extend(np.flatnonzero(event_mask).tolist())
             for component, color, label in (
-                (0, "#1f77b4", "lower-score component"),
-                (1, "#ff7f0e", "higher-score component"),
+                (0, "#1f77b4", "Lower-tail component mean"),
+                (1, "#d95f02", "Higher-tail component mean"),
             ):
                 fig.add_trace(go.Scatter(
                     x=[row["energy_low"], row["energy_high"]],
@@ -1700,9 +1821,10 @@ def plot_energy_shape_scores(
                     ),
                     line={"color": color, "width": 3},
                     hovertemplate=(
-                        f"bin {bin_index}: Energy "
+                        f"Qlong interval {bin_index}: "
                         f"[{row['energy_low']:.0f}, {row['energy_high']:.0f}]<br>"
-                        f"mean={row[f'component_{component}_mean']:.4f}"
+                        f"mean tail fraction="
+                        f"{row[f'component_{component}_mean']:.4f}"
                         "<extra></extra>"
                     ),
                 ))
@@ -1712,21 +1834,36 @@ def plot_energy_shape_scores(
                 x=analysis.energy[high_indices],
                 y=analysis.shape_score[high_indices],
                 mode="markers",
-                name="higher-score candidates in supported bins",
-                marker={"size": 6, "color": "#ff7f0e", "symbol": "diamond"},
-                hovertemplate="Energy=%{x:.0f}<br>shape score=%{y:.4f}<extra></extra>",
+                name="Events assigned to higher-tail component",
+                marker={"size": 6, "color": "#d95f02", "symbol": "diamond"},
+                hovertemplate=(
+                    "recorded Qlong=%{x:.0f} ADC channels<br>"
+                    "tail fraction=%{y:.4f}<extra></extra>"
+                ),
             ))
         fig.update_layout(
-            title=(
-                f"Cf waveform shape score vs ROOT Energy — CH{channel}: "
-                f"{DETECTOR_LABELS[channel]}"
+            title={
+                "text": (
+                    f"Cf diagnostic tail fraction vs recorded Qlong — CH{channel}: "
+                    f"{DETECTOR_LABELS[channel]}"
+                    "<br><sup>Each point is one pulse; colored horizontal segments are "
+                    "component means only in statistically supported Qlong intervals</sup>"
+                ),
+                "x": 0.01,
+                "xanchor": "left",
+            },
+            xaxis_title=(
+                "Recorded Qlong (ROOT field “Energy”), ADC channels — logarithmic scale"
             ),
-            xaxis_title="ROOT Energy (uncalibrated instrument units, log scale)",
-            yaxis_title="Normalized waveform late-area score",
+            yaxis_title=(
+                "Diagnostic tail fraction = positive area[40:100] / area[15:100]"
+            ),
             xaxis_type="log",
             template="plotly_white",
-            height=620,
+            height=680,
+            margin={"l": 105, "r": 35, "t": 125, "b": 85},
             dragmode="zoom",
+            legend={"orientation": "h", "y": 1.02, "yanchor": "bottom"},
         )
         html_path = paths.output_dir / f"cf_energy_shape_score_CH{channel}_{tag}.html"
         fig.write_html(html_path, config=PLOTLY_CONFIG, include_plotlyjs="directory")
@@ -1851,10 +1988,12 @@ def plot_energy_binned_shape_distributions(
                 indices, config.integration_start : config.integration_stop
             ]
             counts, _ = np.histogram(scores, bins=score_edges, density=True)
-            observed_label = "Observed score density"
+            density_scale = max(float(counts.max()), 1e-12)
+            relative_counts = counts / density_scale
+            observed_label = "Observed tail-score distribution"
             fig.add_trace(go.Scatter(
                 x=score_centers,
-                y=counts,
+                y=relative_counts,
                 mode="lines",
                 fill="tozeroy",
                 name=observed_label,
@@ -1863,7 +2002,7 @@ def plot_energy_binned_shape_distributions(
                 line={"color": colors["observed"], "width": 1.3},
                 fillcolor="rgba(140,140,140,0.22)",
                 hovertemplate=(
-                    "late-area score=%{x:.4f}<br>density=%{y:.2f}"
+                    "tail fraction=%{x:.4f}<br>relative density=%{y:.2f}"
                     "<extra></extra>"
                 ),
             ), row=row_number, col=1)
@@ -1883,7 +2022,7 @@ def plot_energy_binned_shape_distributions(
                         weight
                         / (sigma * np.sqrt(2 * np.pi))
                         * np.exp(-0.5 * ((score_grid - mean) / sigma) ** 2)
-                    )
+                    ) / density_scale
                     fig.add_trace(go.Scatter(
                         x=score_grid,
                         y=component_density,
@@ -1909,19 +2048,20 @@ def plot_energy_binned_shape_distributions(
                     shapes,
                     row_number,
                     "unsplit",
-                    "No supported split: all events",
+                    "No supported split",
                 )
 
             row_center = 1 - (row_number - 0.5) / config.energy_bins
             status = "TWO BRANCHES" if supported else "no supported split"
             fig.add_annotation(
-                x=-0.025,
+                x=-0.11,
                 y=row_center,
                 xref="paper",
                 yref="paper",
                 text=(
-                    f"E {row_data['energy_low']:.0f}–{row_data['energy_high']:.0f}"
-                    f"<br>n={row_data['n']} · {status}"
+                    f"Qlong {row_data['energy_low']:.0f}–"
+                    f"{row_data['energy_high']:.0f} ADC ch"
+                    f"<br>{row_data['n']} events · {status}"
                 ),
                 showarrow=False,
                 xanchor="right",
@@ -1930,7 +2070,15 @@ def plot_energy_binned_shape_distributions(
             )
 
             fig.update_xaxes(range=score_range, row=row_number, col=1)
-            fig.update_yaxes(showticklabels=False, title_text="", row=row_number, col=1)
+            fig.update_yaxes(
+                range=[0, 1.12],
+                tickvals=[0, 1],
+                tickfont={"size": 9},
+                showticklabels=True,
+                title_text="",
+                row=row_number,
+                col=1,
+            )
             fig.update_xaxes(
                 range=[config.integration_start, config.integration_stop - 1],
                 row=row_number,
@@ -1945,24 +2093,24 @@ def plot_energy_binned_shape_distributions(
 
         fig.add_annotation(
             x=0.205,
-            y=1.015,
+            y=1.008,
             xref="paper",
             yref="paper",
-            text="Distribution of late-area score",
+            text="Tail-score distribution",
             showarrow=False,
             font={"size": 13},
         )
         fig.add_annotation(
             x=0.735,
-            y=1.015,
+            y=1.008,
             xref="paper",
             yref="paper",
-            text="Normalized waveform: median and 10–90% band",
+            text="Normalized waveform (median; 10–90%)",
             showarrow=False,
             font={"size": 13},
         )
         fig.update_xaxes(
-            title_text="Late-area score: area[40:100] / area[15:100]",
+            title_text="Diagnostic tail fraction: positive area[40:100] / area[15:100]",
             row=config.energy_bins,
             col=1,
         )
@@ -1976,27 +2124,38 @@ def plot_energy_binned_shape_distributions(
             row=(config.energy_bins + 1) // 2,
             col=2,
         )
+        fig.add_annotation(
+            x=-0.035,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            text="Relative probability density (row maximum = 1)",
+            textangle=-90,
+            showarrow=False,
+            font={"size": 12},
+        )
         fig.update_layout(
             title={
                 "text": (
-                    f"Cf shape comparison within narrow ROOT Energy intervals — "
+                    f"Cf shape comparison within narrow recorded-Qlong intervals — "
                     f"CH{channel}: {DETECTOR_LABELS[channel]}"
-                    "<br><sup>Each row fixes Energy; branch colors appear only when "
+                    "<br><sup>Each row restricts the firmware long-gate integral; "
+                    "branch colors appear only when "
                     "all statistical criteria pass</sup>"
                 ),
                 "x": 0.01,
                 "xanchor": "left",
             },
             template="plotly_white",
-            height=205 * config.energy_bins + 260,
-            margin={"l": 180, "r": 45, "t": 175, "b": 90},
+            height=205 * config.energy_bins + 300,
+            margin={"l": 255, "r": 45, "t": 220, "b": 90},
             dragmode="zoom",
             hovermode="closest",
             legend={
                 "orientation": "h",
                 "x": 0,
                 "xanchor": "left",
-                "y": 1.055,
+                "y": 1.045,
                 "yanchor": "bottom",
                 "font": {"size": 12},
             },

@@ -15,6 +15,30 @@ tasks in the project can read and update the same workspace.
 **Consequence:** every material task must read shared memory at startup and publish a
 handoff before finishing, as required by the root `AGENTS.md`.
 
+## 2026-07-20 — Treat ROOT Energy as recorded QDC charge, not independent truth
+
+**Decision:** describe ROOT `Energy` as the recorded firmware long-gate integral
+`Qlong` and `EnergyShort` as `Qshort`. Use “ADC channels” until a physical calibration
+has been established, despite the formal `keV` unit in `run.info`. In figures and
+explanations, retain the ROOT branch name only in parentheses.
+
+The current `shape_score = positive_area[40:100] / positive_area[15:100]` is a fixed,
+interpretable demonstration feature. Its window boundaries are not optimized and it is
+not the proposed final `new_PSD`.
+
+**Rationale:** acquisition settings specify a 140 ns long QDC gate, 40 ns short gate
+(60 ns on CH4/CH5), 10 ns pre-gate, `ADCCH` output, and identity calibration. An offline
+check on 25,000 Cf waveforms reproduces `Energy` with samples `[15:85]` and
+`EnergyShort` with `[15:35]` or `[15:45]`: correlations are 0.99997–1.00000 and fitted
+scales are approximately 1/32. Thus Qlong and the waveform shape are statistically
+coupled observations of the same pulse rather than independent axes.
+
+**Consequence:** energy-stratified plots test residual shape differences at similar
+recorded charge, not shape against independently measured particle energy. Future work
+must test alternative energy proxies/calibration and optimize multi-window or learned
+features using run-separated validation. Benchmark physical-feature models before
+waveform ML, and defer a 1D CNN until labels and independent runs are adequate.
+
 ## 2026-07-20 — Pair score distributions with waveform bands in Cf branch plots
 
 **Decision:** the primary per-channel visualization of the Energy-stratified Cf analysis
