@@ -1772,7 +1772,8 @@ def plot_energy_shape_scores(
             x=analysis.energy[indices],
             y=analysis.shape_score[indices],
             mode="markers",
-            name="All structurally usable Cf events",
+            name="All usable events",
+            showlegend=True,
             marker={"size": 4, "color": "#7f7f7f", "opacity": 0.25},
             customdata=custom,
             hovertemplate=(
@@ -1804,8 +1805,8 @@ def plot_energy_shape_scores(
             )
             supported_high.extend(np.flatnonzero(event_mask).tolist())
             for component, color, label in (
-                (0, "#1f77b4", "Lower-tail component mean"),
-                (1, "#d95f02", "Higher-tail component mean"),
+                (0, "#1f77b4", "Lower-tail mean"),
+                (1, "#d95f02", "Higher-tail mean"),
             ):
                 fig.add_trace(go.Scatter(
                     x=[row["energy_low"], row["energy_high"]],
@@ -1834,7 +1835,8 @@ def plot_energy_shape_scores(
                 x=analysis.energy[high_indices],
                 y=analysis.shape_score[high_indices],
                 mode="markers",
-                name="Events assigned to higher-tail component",
+                name="Higher-tail events",
+                showlegend=True,
                 marker={"size": 6, "color": "#d95f02", "symbol": "diamond"},
                 hovertemplate=(
                     "recorded Qlong=%{x:.0f} ADC channels<br>"
@@ -1846,8 +1848,6 @@ def plot_energy_shape_scores(
                 "text": (
                     f"Cf diagnostic tail fraction vs recorded Qlong — CH{channel}: "
                     f"{DETECTOR_LABELS[channel]}"
-                    "<br><sup>Each point is one pulse; colored horizontal segments are "
-                    "component means only in statistically supported Qlong intervals</sup>"
                 ),
                 "x": 0.01,
                 "xanchor": "left",
@@ -1860,10 +1860,18 @@ def plot_energy_shape_scores(
             ),
             xaxis_type="log",
             template="plotly_white",
-            height=680,
-            margin={"l": 105, "r": 35, "t": 125, "b": 85},
+            height=650,
+            margin={"l": 105, "r": 230, "t": 85, "b": 85},
             dragmode="zoom",
-            legend={"orientation": "h", "y": 1.02, "yanchor": "bottom"},
+            legend={
+                "orientation": "v",
+                "x": 1.02,
+                "xanchor": "left",
+                "y": 1.0,
+                "yanchor": "top",
+                "font": {"size": 12},
+                "traceorder": "normal",
+            },
         )
         html_path = paths.output_dir / f"cf_energy_shape_score_CH{channel}_{tag}.html"
         fig.write_html(html_path, config=PLOTLY_CONFIG, include_plotlyjs="directory")
@@ -1926,13 +1934,19 @@ def plot_energy_binned_shape_distributions(
 
         fig = make_subplots(
             rows=config.energy_bins,
-            cols=2,
+            cols=3,
             shared_xaxes="columns",
-            horizontal_spacing=0.09,
+            horizontal_spacing=0.05,
             vertical_spacing=0.012,
-            column_widths=[0.43, 0.57],
+            column_widths=[0.20, 0.34, 0.46],
         )
         legend_seen: set[str] = set()
+        label_domain = fig.get_subplot(1, 1).xaxis.domain
+        distribution_domain = fig.get_subplot(1, 2).xaxis.domain
+        waveform_domain = fig.get_subplot(1, 3).xaxis.domain
+        label_x = float(np.mean(label_domain))
+        distribution_x = float(np.mean(distribution_domain))
+        waveform_x = float(np.mean(waveform_domain))
 
         def add_waveform_band(
             shapes: np.ndarray,
@@ -1949,7 +1963,7 @@ def plot_energy_binned_shape_distributions(
                 legendgroup=label,
                 showlegend=False,
                 hoverinfo="skip",
-            ), row=row_number, col=2)
+            ), row=row_number, col=3)
             fig.add_trace(go.Scatter(
                 x=sample_axis,
                 y=q90,
@@ -1960,7 +1974,7 @@ def plot_energy_binned_shape_distributions(
                 legendgroup=label,
                 showlegend=False,
                 hoverinfo="skip",
-            ), row=row_number, col=2)
+            ), row=row_number, col=3)
             fig.add_trace(go.Scatter(
                 x=sample_axis,
                 y=median,
@@ -1973,7 +1987,7 @@ def plot_energy_binned_shape_distributions(
                     f"{label}<br>sample=%{{x}}<br>median=%{{y:.3f}}"
                     "<extra></extra>"
                 ),
-            ), row=row_number, col=2)
+            ), row=row_number, col=3)
             legend_seen.add(label)
 
         for row_number, row_data in enumerate(channel_rows, start=1):
@@ -2005,7 +2019,7 @@ def plot_energy_binned_shape_distributions(
                     "tail fraction=%{x:.4f}<br>relative density=%{y:.2f}"
                     "<extra></extra>"
                 ),
-            ), row=row_number, col=1)
+            ), row=row_number, col=2)
             legend_seen.add(observed_label)
 
             supported = bool(row_data["two_branch_supported"])
@@ -2035,7 +2049,7 @@ def plot_energy_binned_shape_distributions(
                             f"{label}<br>mean={mean:.4f}<br>"
                             f"fraction={weight:.1%}<extra></extra>"
                         ),
-                    ), row=row_number, col=1)
+                    ), row=row_number, col=2)
                     legend_seen.add(label)
                     add_waveform_band(
                         shapes[local_components == component],
@@ -2051,25 +2065,30 @@ def plot_energy_binned_shape_distributions(
                     "No supported split",
                 )
 
-            row_center = 1 - (row_number - 0.5) / config.energy_bins
+            row_center = float(np.mean(
+                fig.get_subplot(row_number, 1).yaxis.domain
+            ))
             status = "TWO BRANCHES" if supported else "no supported split"
             fig.add_annotation(
-                x=-0.11,
+                x=label_x,
                 y=row_center,
                 xref="paper",
                 yref="paper",
                 text=(
-                    f"Qlong {row_data['energy_low']:.0f}–"
+                    f"Qlong: {row_data['energy_low']:.0f}–"
                     f"{row_data['energy_high']:.0f} ADC ch"
-                    f"<br>{row_data['n']} events · {status}"
+                    f"<br>{row_data['n']} events"
+                    f"<br>{status}"
                 ),
                 showarrow=False,
-                xanchor="right",
-                align="right",
-                font={"size": 11},
+                xanchor="center",
+                align="center",
+                font={"size": 10},
             )
 
-            fig.update_xaxes(range=score_range, row=row_number, col=1)
+            fig.update_xaxes(visible=False, row=row_number, col=1)
+            fig.update_yaxes(visible=False, row=row_number, col=1)
+            fig.update_xaxes(range=score_range, row=row_number, col=2)
             fig.update_yaxes(
                 range=[0, 1.12],
                 tickvals=[0, 1],
@@ -2077,23 +2096,23 @@ def plot_energy_binned_shape_distributions(
                 showticklabels=True,
                 title_text="",
                 row=row_number,
-                col=1,
+                col=2,
             )
             fig.update_xaxes(
                 range=[config.integration_start, config.integration_stop - 1],
                 row=row_number,
-                col=2,
+                col=3,
             )
             fig.update_yaxes(
                 range=[-0.10, 1.08],
                 tickvals=[0, 0.5, 1.0],
                 row=row_number,
-                col=2,
+                col=3,
             )
 
         fig.add_annotation(
-            x=0.205,
-            y=1.008,
+            x=distribution_x,
+            y=1.012,
             xref="paper",
             yref="paper",
             text="Tail-score distribution",
@@ -2101,8 +2120,8 @@ def plot_energy_binned_shape_distributions(
             font={"size": 13},
         )
         fig.add_annotation(
-            x=0.735,
-            y=1.008,
+            x=waveform_x,
+            y=1.012,
             xref="paper",
             yref="paper",
             text="Normalized waveform (median; 10–90%)",
@@ -2112,51 +2131,43 @@ def plot_energy_binned_shape_distributions(
         fig.update_xaxes(
             title_text="Diagnostic tail fraction: positive area[40:100] / area[15:100]",
             row=config.energy_bins,
-            col=1,
+            col=2,
         )
         fig.update_xaxes(
             title_text="Aligned sample index",
             row=config.energy_bins,
-            col=2,
+            col=3,
         )
         fig.update_yaxes(
             title_text="Peak-normalized amplitude",
             row=(config.energy_bins + 1) // 2,
-            col=2,
+            col=3,
         )
-        fig.add_annotation(
-            x=-0.035,
-            y=0.5,
-            xref="paper",
-            yref="paper",
-            text="Relative probability density (row maximum = 1)",
-            textangle=-90,
-            showarrow=False,
-            font={"size": 12},
+        fig.update_yaxes(
+            title_text="Relative density<br>(row maximum = 1)",
+            row=(config.energy_bins + 1) // 2,
+            col=2,
         )
         fig.update_layout(
             title={
                 "text": (
                     f"Cf shape comparison within narrow recorded-Qlong intervals — "
                     f"CH{channel}: {DETECTOR_LABELS[channel]}"
-                    "<br><sup>Each row restricts the firmware long-gate integral; "
-                    "branch colors appear only when "
-                    "all statistical criteria pass</sup>"
                 ),
                 "x": 0.01,
                 "xanchor": "left",
             },
             template="plotly_white",
-            height=205 * config.energy_bins + 300,
-            margin={"l": 255, "r": 45, "t": 220, "b": 90},
+            height=205 * config.energy_bins + 240,
+            margin={"l": 45, "r": 220, "t": 105, "b": 90},
             dragmode="zoom",
             hovermode="closest",
             legend={
-                "orientation": "h",
-                "x": 0,
+                "orientation": "v",
+                "x": 1.02,
                 "xanchor": "left",
-                "y": 1.045,
-                "yanchor": "bottom",
+                "y": 1.0,
+                "yanchor": "top",
                 "font": {"size": 12},
             },
         )

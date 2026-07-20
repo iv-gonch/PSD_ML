@@ -66,10 +66,11 @@ baseline, timing, and other acquisition artifacts.
   Energy intervals generally remain unresolved. Higher-tail candidates are a minority
   and must not yet be interpreted as neutrons. Only one Cf run is available.
 - The five `cf_energy_binned_form_figures` were redesigned for legibility. Each Energy
-  interval is now one spacious row: observed/fitted late-area-score density on the left,
-  and normalized waveform median with a 10–90% band on the right. A fixed top legend and
-  separate row labels replace the overlapping subplot titles. The notebook explains how
-  to read both columns and why Energy is held approximately fixed within each row.
+  interval is now one spacious row: an internal interval-label column, observed/fitted
+  late-area-score density, and normalized waveform median with a 10–90% band. The legend
+  occupies a reserved right margin instead of competing with the title. Score figures use
+  the same right-margin legend policy. Browser renders were inspected at 1200–1800 px;
+  legends, row labels, column headings, and axes remain visible without overlap.
 - ROOT `Energy` is not an independent label: it is the recorded firmware `Qlong` charge
   integral; `EnergyShort` is `Qshort`. Settings use 140 ns long, 40 ns short gates
   (60 ns for CH4/CH5), 10 ns pre-gate, identity calibration, and `ADCCH` output. Offline

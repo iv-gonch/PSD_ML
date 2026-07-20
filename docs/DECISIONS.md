@@ -4,6 +4,22 @@ This file records durable decisions shared by all project tasks. New entries sho
 the date, decision, rationale, and consequences. If a decision is superseded, retain it
 and point to the replacing entry.
 
+## 2026-07-20 — Require rendered-image QA for dense Plotly layouts
+
+**Decision:** figures with multiple subplots, annotations, or external legends must be
+checked from an actual browser render at both a wide viewport and a notebook-like width
+before the layout is accepted. For the current Cf figures, legends occupy a reserved
+right margin and Energy-interval annotations occupy an internal label column rather than
+negative paper coordinates.
+
+**Rationale:** valid Plotly coordinates do not prove that browser-rendered text is
+readable. Earlier legends overlapped or crossed the title, and annotations placed beyond
+the paper boundary were clipped even though the notebook executed successfully.
+
+**Consequence:** structural checks remain useful but cannot replace visual inspection.
+Record the tested viewport sizes in the worklog; do not finish a visualization change
+while known labels, legends, titles, or axes overlap or leave the visible canvas.
+
 ## 2026-07-17 — Use files as cross-chat project memory
 
 **Decision:** `docs/PROJECT_CONTEXT.md`, `docs/WORKLOG.md`, and this file are the canonical

@@ -3,6 +3,32 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Repair and visually verify Cf figure layouts
+
+**Task:** fix self-overlapping legends in `cf_energy_shape_score_figures`, move the
+`cf_energy_binned_form_figures` legend away from its title, prevent interval labels from
+being clipped, and verify the rendered results rather than relying only on Plotly layout
+metadata.
+
+**Changes:** score-figure legends are now short, vertical, and placed in a reserved right
+margin. Binned-form figures now use a dedicated internal label column followed by the
+tail-score and waveform columns; their legend is vertical in a reserved right margin,
+and column headings, axis labels, and title have independent space. Regenerated all ten
+standalone HTML figures and the executed notebook outputs.
+
+**Verification:** executed the complete 31-cell notebook without errors. Rendered actual
+HTML for CH0 at 1600/1800 px and CH5 at 1200 px using headless Chrome with software
+WebGL, then inspected the resulting PNG screenshots. At both wide and notebook-like
+widths, legends are readable and separate from titles, interval labels stay inside the
+figure, column headings do not collide, and both axis titles are visible. CH0 and CH5
+cover both layout extremes; the same generated layout is used by all five channels.
+
+**Files modified:** `psd_ml/pipeline.py`, `csv_data_processing.ipynb`,
+`docs/DECISIONS.md`, `docs/PROJECT_CONTEXT.md`, and `docs/WORKLOG.md`.
+
+**Recommended next step:** retain rendered-image checks at a wide and notebook-like
+viewport whenever Plotly annotations, legends, or subplot geometry are changed.
+
 ## 2026-07-20 — Clarify QDC Energy, shape_score, and plot labels
 
 **Task:** explain how ROOT Energy is calculated, document the meaning of
