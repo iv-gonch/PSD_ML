@@ -3,6 +3,34 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-20 — Visualize all QC-flagged waveforms
+
+**Task:** show in `csv_data_processing.ipynb` every signal marked by at least one
+technical QC flag.
+
+**Changes:** added reusable QC accounting and Plotly functions to
+`psd_ml/pipeline.py`; added a notebook section defining “outlier” as the union of QC
+flags; plotted each event once after per-event baseline subtraction and sign inversion,
+but before time alignment or amplitude normalization. Hover shows sample/source row,
+all active flags, amplitude, SNR, baseline RMS, and tail ratio. Standalone HTML files are
+generated per non-empty source×channel group under `gamma_n_data/samples/`.
+
+**Findings:** the fixed 10,000-event sample contains 192 unique flagged events: 2 from
+the Co acquisition and 190 from the Cf acquisition. Seven source×channel groups contain
+flagged events; the other three are reported explicitly as empty. Individual flag counts
+overlap and therefore are not summed as event counts.
+
+**Verification:** executed the complete notebook without errors or warnings; verified 7
+new Plotly MIME outputs and 7 HTML files, exactly 192 traces, 192 unique `sample_row`
+identifiers, and exact equality between the flag union and `~quality_ok`. The notebook
+now contains 22 interactive figures in total.
+
+**Files modified:** `psd_ml/__init__.py`, `psd_ml/pipeline.py`,
+`csv_data_processing.ipynb`, `docs/PROJECT_CONTEXT.md`, and `docs/WORKLOG.md`.
+
+**Next step:** inspect the QC plots before deciding whether any flag definition should be
+revised; flags remain diagnostic annotations and do not authorize deleting events.
+
 ## 2026-07-17 — Audit and preprocess raw waveform sample
 
 **Task:** determine necessary waveform preprocessing from measured data, apply it

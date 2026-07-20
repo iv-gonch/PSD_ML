@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
+from plotly.subplots import make_subplots
 
 
 DETECTOR_LABELS = {
@@ -38,6 +39,15 @@ PLOTLY_CONFIG = {
     "displaylogo": False,
     "modeBarButtonsToAdd": ["drawline", "eraseshape"],
 }
+
+QC_FLAG_SPECS = (
+    ("clipped", "достигнута граница ADC", "#d62728"),
+    ("invalid_alignment", "невалидное CFD-выравнивание", "#9467bd"),
+    ("possible_multipeak", "возможная многопиковая форма", "#8c564b"),
+    ("tail_not_recovered", "хвост не вернулся к baseline", "#ff7f0e"),
+    ("low_snr", "низкий SNR", "#7f7f7f"),
+    ("baseline_noisy", "шумный baseline", "#17becf"),
+)
 
 
 @dataclass(frozen=True)
@@ -639,6 +649,143 @@ def print_quality_summary(validation: Validation, paths: ProjectPaths, config: P
         f"99% |ошибки|={validation.alignment_error_q99:.6f} sample"
     )
     print("Сводка сохранена:", validation.summary_csv.relative_to(paths.root))
+
+
+def _qc_flag_arrays(
+    processed: Processed,
+) -> tuple[tuple[str, str, str, np.ndarray], ...]:
+    return tuple(
+        (name, label, color, getattr(processed, name))
+        for name, label, color in QC_FLAG_SPECS
+    )
+
+
+def summarize_qc_flags(sample: Sample, processed: Processed) -> tuple[dict[str, object], ...]:
+    """Count every QC flag and the union of flagged events per source × channel."""
+
+    flag_arrays = _qc_flag_arrays(processed)
+    any_flag = np.logical_or.reduce([values for _, _, _, values in flag_arrays])
+    if not np.array_equal(any_flag, ~processed.quality_ok):
+        raise AssertionError("quality_ok не совпадает с объединением QC-флагов")
+
+    rows = []
+    for run in RUN_ORDER:
+        for channel in sorted(DETECTOR_LABELS):
+            group = (sample.runs == run) & (sample.channels == channel)
+            row: dict[str, object] = {
+                "run": run,
+                "channel": channel,
+                "detector_label": DETECTOR_LABELS[channel],
+                "n_group": int(group.sum()),
+                "n_flagged": int((group & any_flag).sum()),
+            }
+            for name, _, _, values in flag_arrays:
+                row[name] = int((group & values).sum())
+            rows.append(row)
+    return tuple(rows)
+
+
+def print_qc_flag_summary(rows: tuple[dict[str, object], ...]) -> None:
+    """Print a compact accounting table; flag columns can overlap."""
+
+    print(
+        "run/channel | flagged | clipped/invalid/multipeak/tail/noisy/low_snr "
+        "(один импульс может иметь несколько флагов)"
+    )
+    for row in rows:
+        print(
+            f"{row['run']:14s} CH{row['channel']} | "
+            f"{row['n_flagged']:3d}/{row['n_group']:4d} | "
+            f"{row['clipped']:2d}/{row['invalid_alignment']:2d}/"
+            f"{row['possible_multipeak']:2d}/{row['tail_not_recovered']:2d}/"
+            f"{row['baseline_noisy']:2d}/{row['low_snr']:3d}"
+        )
+
+
+def plot_qc_flagged_waveforms(
+    sample: Sample,
+    audit: Audit,
+    processed: Processed,
+    paths: ProjectPaths,
+    config: PipelineConfig,
+) -> list[go.Figure]:
+    """Plot every flagged event without alignment or amplitude normalization.
+
+    Only the per-event baseline is removed and the negative acquisition polarity is
+    inverted. This keeps low amplitude, timing failures, and multi-peak topology visible.
+    Each event appears exactly once; the legend and hover show all of its active flags.
+    """
+
+    flag_arrays = _qc_flag_arrays(processed)
+    any_flag = np.logical_or.reduce([values for _, _, _, values in flag_arrays])
+    sample_axis = np.arange(config.expected_samples)
+    figures = []
+
+    for run in RUN_ORDER:
+        spec = PLOT_SPECS[run]
+        for channel in sorted(DETECTOR_LABELS):
+            group = (sample.runs == run) & (sample.channels == channel)
+            indices = np.flatnonzero(group & any_flag)
+            if len(indices) == 0:
+                print(f"{run:14s} CH{channel}: QC-событий нет")
+                continue
+
+            fig = go.Figure()
+            shown_combinations: set[str] = set()
+            for index in indices:
+                active = [
+                    (name, label, color)
+                    for name, label, color, values in flag_arrays
+                    if values[index]
+                ]
+                combination = " + ".join(name for name, _, _ in active)
+                combination_label = " + ".join(label for _, label, _ in active)
+                color = active[0][2]
+                source_file = sample.provenance[index][2]
+                source_row = sample.provenance[index][3]
+                fig.add_trace(go.Scattergl(
+                    x=sample_axis,
+                    y=audit.positive_raw[index],
+                    mode="lines",
+                    name=combination_label,
+                    legendgroup=combination,
+                    showlegend=combination not in shown_combinations,
+                    line={"color": color, "width": 1.1},
+                    opacity=0.72,
+                    hovertemplate=(
+                        f"sample_row={index}<br>source_row={source_row}<br>"
+                        f"source_file={source_file}<br>flags={combination}<br>"
+                        f"amplitude={audit.amplitude[index]:.1f} ADC<br>"
+                        f"SNR={audit.snr[index]:.1f}<br>"
+                        f"baseline RMS={audit.baseline_rms[index]:.2f} ADC<br>"
+                        f"tail ratio={audit.tail_ratio[index]:.4f}<br>"
+                        "sample=%{x}<br>baseline-subtracted amplitude=%{y:.1f}"
+                        "<extra></extra>"
+                    ),
+                ))
+                shown_combinations.add(combination)
+
+            fig.add_hline(y=0, line={"color": "#666", "width": 1})
+            fig.update_layout(
+                title=(
+                    f"QC-flagged waveforms — {spec['title']} — CH{channel}: "
+                    f"{DETECTOR_LABELS[channel]} — {len(indices)} events"
+                ),
+                xaxis_title="Sample index",
+                yaxis_title="Baseline-subtracted, sign-inverted amplitude (ADC)",
+                template="plotly_white",
+                height=620,
+                dragmode="zoom",
+                legend_title_text="Active QC flags",
+            )
+            html_path = paths.output_dir / (
+                f"qc_flagged_{spec['slug']}_CH{channel}_seed_{config.random_seed}.html"
+            )
+            fig.write_html(html_path, config=PLOTLY_CONFIG, include_plotlyjs="directory")
+            fig.show(renderer="plotly_mimetype", config=PLOTLY_CONFIG)
+            print("Интерактивно:", html_path.relative_to(paths.root))
+            figures.append(fig)
+    return figures
 
 
 def _trailing_crossings(

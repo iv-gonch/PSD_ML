@@ -1,6 +1,6 @@
 # PSD_ML project context
 
-Last updated: 2026-07-17
+Last updated: 2026-07-20
 
 ## Goal
 
@@ -56,6 +56,12 @@ baseline, timing, and other acquisition artifacts.
   tail residual 95/99% quantiles 1.31%/3.10%; post-alignment 99% CFD error 0.2355 sample.
   No smoothing or linear detrending is currently justified. Source labels are mixture/run
   conditions, not event-level particle truth.
+- The notebook includes an interactive visual audit of all 192 events for which at least
+  one QC flag is active. Seven non-empty source×channel plots show baseline-subtracted,
+  sign-inverted forms before alignment or normalization; every event appears once and
+  hover lists all of its flags and diagnostic values. Three groups with no QC events are
+  reported explicitly. Matching standalone HTML files use the prefix `qc_flagged_` under
+  `gamma_n_data/samples/`.
 - The project-local Jupyter kernel spec is `.jupyter/kernels/psd-ml/kernel.json`; Plotly
   6.9.0 provides offline interactive zoom/pan plots and is installed in `.venv`.
 - Canonical channel labels are: CH0/CH2 `PMT-9102B + T-Stlbn`, CH3
