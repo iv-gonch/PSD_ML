@@ -1,6 +1,6 @@
 # PSD_ML project context
 
-Last updated: 2026-07-20
+Last updated: 2026-07-21
 
 ## Goal
 
@@ -11,17 +11,41 @@ events. The initial study compares three experimental mixtures:
 - `G`: gamma plus other events, without controlled neutrons;
 - `M`: neutron plus gamma plus other events.
 
-The immediate objective is to establish whether a reproducible shape component appears
-in `M` and remains distinguishable from `G` after controlling for energy, run identity,
-baseline, timing, and other acquisition artifacts.
+The primary objective is now to discover and validate a new pulse-shape metric that
+outperforms classical PSD, without assuming in advance that VAE is the winning method.
+The associated scientific objectives are to interpret learned factors through waveform
+shape and physical conditions, find a minimal factorized latent space, isolate a
+particle-informative/domain-robust component, and later build condition-aware PSD from
+controlled multi-condition measurements.
 
 ## Current state
 
 - The detailed analysis plan is saved in `docs/signal_processing_plan.md`.
+- `Идеи развития PSD_ML.md` provides the project primer on AE, VAE, CVAE, latent
+  interpretation, factorization, Domain Adaptation and cross-detector transfer.
 - The proposed real-time extension is specified in `docs/adaptive_psd_plan.md`: measured
   PMT voltage/temperature/field enter a condition-aware classifier; guarded domain
   adaptation is a later residual correction, while MPC is reserved for a separate
   physical-control loop with actuators and an independent calibration reference.
+- A colleague's 7-slide VAE report has been reviewed in
+  `docs/colleague_vae_report_review.md`. Its three-dimensional VAE exposes a promising
+  tail-controlling latent coordinate, but it lacks documented label provenance,
+  energy/channel/run controls and independent validation. It will be treated as a
+  candidate `new_PSD` score within the common benchmark; a Qlong/channel/condition-aware
+  conditional VAE is the preferred joint extension.
+- `real_data_vae.ipynb` now reproduces an equivalent three-dimensional VAE on real data.
+  It trains five independent channel models on 10,000 Cf events per channel with three
+  seeds (15 models total); Co is an external control and has no training split. The
+  notebook calls only `psd_ml/vae.py`, verifies every sampled CSV waveform against ROOT,
+  retains `low_snr`, exports event-level latents and audit tables, and embeds 30 Plotly
+  figures. The generated artifacts live under ignored
+  `gamma_n_data/samples/vae_real/`.
+- The first VAE audit does not support a universal single latent coordinate: by the
+  documented variance/KL diagnostic, all three coordinates are active for CH0 and CH2,
+  two for CH4, and mainly one for CH3 and CH5. Coordinate matching across seeds is not
+  uniformly stable, especially for CH2, so coordinate numbers cannot be assigned a fixed
+  physical interpretation. Co-vs-Cf run AUC ranges only about 0.50–0.62 and is not a
+  neutron/gamma metric.
 - Experimental material and ROOT-file exploration utilities are under `gamma_n_data/`.
 - A Python virtual environment exists at `.venv/`.
 - Git is initialized on branch `main`; the public remote is
@@ -108,8 +132,11 @@ baseline, timing, and other acquisition artifacts.
 ## Important paths
 
 - `docs/signal_processing_plan.md` — full staged research plan.
+- `Идеи развития PSD_ML.md` — conceptual guide based on the VAE discussion.
 - `docs/adaptive_psd_plan.md` — condition-aware inference, domain adaptation, online
   safety, voltage-sweep validation, and the optional MPC control layer.
+- `docs/colleague_vae_report_review.md` — interpretation, limitations, questions for the
+  colleague, and the concrete VAE/CVAE integration protocol.
 - `docs/DECISIONS.md` — durable technical and scientific decisions.
 - `docs/WORKLOG.md` — chronological handoffs from all Codex tasks.
 - `docs/REPORT_NOTES.md` — mandatory caveats and analyses for the eventual project report.
@@ -117,9 +144,13 @@ baseline, timing, and other acquisition artifacts.
 - `gamma_n_data/CSV/` — waveform-only CSV exports and their format description.
 - `gamma_n_data/export_waveforms_csv.py` — streaming ROOT-to-CSV exporter.
 - `csv_data_processing.ipynb` — executable, ordered CSV processing pipeline.
+- `real_data_vae.ipynb` — executable real-data VAE experiment and full latent audit.
 - `psd_ml/pipeline.py` — reusable implementation of sampling, audit, preprocessing,
   validation, ROOT metadata joins, energy-stratified branch analysis, persistence, and
   Plotly stages called by the notebook.
+- `psd_ml/vae.py` — channel-specific VAE, training, persistence, latent audit, and
+  interactive result figures called by `real_data_vae.ipynb`.
+- `requirements-vae.txt` — pinned additional PyTorch dependency for the VAE experiment.
 - `gamma_n_data/samples/` — reproducibly generated test samples and figures.
 - `gamma_n_data/JUPYTER.md` — notebook usage notes.
 - `gamma_n_data/VIEW_ROOT_FILES.md` — ROOT file viewing instructions.
@@ -153,14 +184,17 @@ baseline, timing, and other acquisition artifacts.
    acquisition selection; compare it with Co and the full classical PSD distribution,
    and resolve the binning-sensitive CH0 result.
 5. Re-audit preprocessing and the two-branch result on independent complete runs.
-6. Implement the classical PSD benchmark described in `docs/signal_processing_plan.md`
-   and report performance in fixed energy strata, including the unresolved low-energy
-   region.
-7. Build a leakage-controlled bank of interpretable multi-window/time-domain features,
-   optimize it only on training/validation runs, and compare logistic regression and
-   gradient boosting with classical PSD. Then test PCA/shapelets/MiniROCKET; defer 1D CNN
-   work until stable candidate labels and independent runs exist.
+6. Implement the common `new_PSD` benchmark described in
+   `docs/signal_processing_plan.md`: strong classical/multi-window baselines first, then
+   PCA/linear AE, AE/VAE, time-series and supervised candidates under the same splits.
+7. Add a standard latent audit against waveform shape, Qlong, classical PSD, run,
+   channel, QC and low-SNR; compare dimensions and seed stability rather than assuming
+   three latents or interpreting a coordinate by its index.
 8. Before online adaptation, collect randomized repeated Co/Cf/background/calibration
    runs over a safe PMT-voltage grid, recording setpoint/readback and environmental
    telemetry. Compare gain correction, explicit condition inputs, adapters, and domain
    adaptation using held-out runs and held-out conditions.
+9. Compare the completed real-data VAE with classical PSD and optimized multi-window
+   baselines on independent complete runs and explicit low-Qlong strata. Obtain the
+   colleague's code, label provenance and exact preprocessing before claiming an exact
+   reproduction or interpreting latent separation physically.

@@ -3,6 +3,112 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-23 — Commit and publish the complete accumulated workspace
+
+**Task:** preserve every tracked and untracked project change that had accumulated since
+the previous `origin/main` state.
+
+**Scope:** VAE implementation and executed notebook, unit tests and dependency pin,
+revised research plan and shared-memory documents, colleague-report review, AE/VAE/CVAE
+project guide in Markdown and DOCX, and 30 ROOT reference screenshots for the Co/Cf
+acquisitions. Ignored raw ROOT/CSV data, generated VAE artifacts, samples, and the local
+environment remain outside Git according to `.gitignore`.
+
+**Verification:** checked the worktree with `git diff --check`, confirmed that no newly
+tracked file approaches GitHub's 100 MB single-file limit, committed the complete scope,
+and pushed branch `main` to the public `origin`.
+
+## 2026-07-21 — Implement equivalent real-data VAE experiment
+
+**Task:** reproduce the colleague's three-dimensional VAE idea on the experimental
+waveforms in a new executable notebook, with reusable code in the project library.
+
+**Changes:** added `psd_ml/vae.py`, `real_data_vae.ipynb`, `requirements-vae.txt`, and
+`tests/test_vae.py`. The pipeline samples 10,000 events for each run×channel group,
+verifies sampled CSV waveforms exactly against ROOT, applies the established baseline /
+CFD-50 / peak-normalization preprocessing, trains three channel-specific seeds on Cf
+only, saves checkpoints and histories, and audits every posterior coordinate against
+Qlong, classical PSD, shape score, amplitude, SNR, baseline RMS, CFD shift, run, seed,
+and Qlong strata. Co remains an external gamma-control acquisition. Structural QC
+failures are excluded; low-SNR events are retained.
+
+**Findings:** 15 models were trained on 100,000 real pulses. The primary-seed variance/KL
+diagnostic marks all three coordinates active for CH0 and CH2, two for CH4, and mainly
+one for CH3 and CH5. Seed matching requires coordinate permutation/sign changes and is
+not uniformly stable, so no fixed coordinate can yet be declared `new_PSD`. Co-vs-Cf
+run AUC is approximately 0.50–0.62 and is not particle-classification performance.
+
+**Artifacts:** generated checkpoints, histories, 15 event-level latent tables, four
+aggregate audit tables, and 30 standalone interactive figures are under the ignored
+`gamma_n_data/samples/vae_real/` directory. Notebook outputs contain the same 30 plots.
+
+**Verification:** executed the notebook from start to finish with zero error outputs;
+confirmed 14 cells, 15 checkpoints, 15 histories, 15 latent CSVs of 20,000 rows each,
+45 summary rows, 315 correlations, 45 seed-alignment rows, and 240 Qlong-bin rows. Four
+unit tests pass, `py_compile` and `git diff --check` pass, and representative browser
+renders for reconstruction, latent distributions, 3D space, Qlong strata, and all-three
+coordinate traversals were inspected for clipping and overlap.
+
+**Limitations / next step:** this is an equivalent implementation because the colleague's
+code and exact preprocessing are unavailable. A single Cf run permits only within-run
+event validation. Collect independent repeated runs and compare VAE-derived candidates
+against classical PSD and optimized multi-window baselines in held-out-run and low-Qlong
+tests before interpreting any coordinate as neutron/gamma separation.
+
+## 2026-07-21 — Add AE/VAE/CVAE guide and revise the research program
+
+**Task:** import the substantive VAE discussion, write a project primer, and refocus the
+plan on a new PSD metric, latent interpretation/factorization, a particle-specific
+feature, and explicit condition-aware adaptation.
+
+**Changes:** added root `Идеи развития PSD_ML.md`; replaced the original staged plan with
+a benchmark-driven program in `docs/signal_processing_plan.md`; recorded the new research
+decision and updated the project goal, paths, and next steps.
+
+**Key conclusions:** latent dimension is user-selected; VAE predicts parameters of
+`q(z|X)` rather than averaging samples or searching over z; standard AE/VAE coordinates
+are not physically interpretable or disentangled by default; VAE is one candidate among
+many; `z_particle` needs anchors/supervision plus leakage tests; conditioning and domain
+invariance are distinct; condition-aware PSD requires repeated factorial measurements.
+
+**Verification:** cross-checked the new documents against current project limitations,
+the existing adaptive-PSD plan, and the colleague-VAE review. No model or data artifacts
+were changed.
+
+**Next step:** implement the common classical/multi-window/PCA/AE/VAE benchmark and
+standard latent audit, while planning independent repeated and condition-sweep runs.
+
+## 2026-07-21 — Review colleague's VAE report and define integration
+
+**Task:** read `/Users/iv-gonch/Downloads/v2.pdf`, explain the colleague's work, and
+determine how it can be combined with PSD_ML.
+
+**Findings:** the seven-slide report trains a three-dimensional VAE and identifies one
+latent coordinate whose decoder traversal changes the normalized pulse tail smoothly;
+this is a promising learned PSD-like score. The report does not provide data/label
+provenance, architecture/loss, run-separated validation, energy/channel control, or
+quantitative independent-test metrics. The claim of physical simulation is therefore
+premature. The first latent also shows class separation in its histogram despite a nearly
+flat local traversal, which needs investigation rather than being called fully collapsed.
+
+**Integration:** use PSD_ML provenance, baseline/alignment/QC, channel separation and
+Qlong strata as the common input and validation protocol. Add VAE latent scores to the
+same benchmark as classical PSD, manual/optimized physical features and simple latent
+baselines. Prefer a conditional VAE where Qlong, channel and operating conditions are
+explicit and `z_shape` models residual form. Do not use decoded waveforms for
+augmentation until physical validity is demonstrated.
+
+**Files created/modified:** `docs/colleague_vae_report_review.md`, `docs/DECISIONS.md`,
+`docs/PROJECT_CONTEXT.md`, and `docs/WORKLOG.md`.
+
+**Verification:** extracted the PDF text and rendered/visually inspected all seven pages,
+including latent histograms, 3D embedding, two traversals, and conclusions; cross-checked
+the claims against the current PSD_ML data and validation constraints.
+
+**Recommended next step:** obtain the colleague's code, exact preprocessing, label
+origin and run metadata, then reproduce the VAE per channel in the shared pipeline before
+designing the conditional VAE.
+
 ## 2026-07-20 — Assess domain adaptation and MPC for adaptive real-time PSD
 
 **Task:** determine whether domain adaptation and model predictive control support a

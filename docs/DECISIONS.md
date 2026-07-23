@@ -4,6 +4,46 @@ This file records durable decisions shared by all project tasks. New entries sho
 the date, decision, rationale, and consequences. If a decision is superseded, retain it
 and point to the replacing entry.
 
+## 2026-07-21 — Reframe the research around a benchmarked new PSD metric
+
+**Decision:** the primary research objective is to discover and validate the most
+effective pulse-shape separation metric, without committing in advance to VAE. AE/VAE,
+physical features, time-series methods, metric learning, and compact supervised networks
+must share one run-separated benchmark. The second objective is a minimal factorized
+representation with an explicitly tested particle component; condition-aware PSD follows
+only after controlled multi-condition data are collected.
+
+**Rationale:** reconstruction does not optimize particle separation, standard VAE does
+not guarantee interpretable/disentangled coordinates, and current Co/Cf mixture labels
+cannot prove event-level particle identity. Explicit conditioning and particle-specific
+losses address different questions and require appropriate experimental data.
+
+**Consequence:** use the revised `docs/signal_processing_plan.md`; treat VAE as a
+candidate, audit every latent against shape, charge, run, channel, QC and conditions, and
+require independent runs/anchors before claiming `z_particle` or neutron efficiency. The
+conceptual guide is `Идеи развития PSD_ML.md`.
+
+## 2026-07-21 — Evaluate the colleague's VAE as a candidate shape score
+
+**Decision:** integrate the reported three-latent VAE as a candidate representation and
+diagnostic method in the common PSD benchmark, not as an already validated neutron/gamma
+classifier or physical simulator. Use PSD_ML preprocessing/provenance and evaluate the
+latent score by channel, Qlong stratum, complete run, QC, and low-SNR group. The preferred
+joint extension is a conditional VAE with known Qlong/channel/operating conditions passed
+explicitly and a residual `z_shape`.
+
+**Rationale:** the report shows a promising latent coordinate controlling the decoded
+tail, but does not document label provenance, run-separated validation, energy/channel
+control, losses, or independent metrics. Smooth decoder traversal alone does not prove
+physical intermediate events. Unconditional training could encode run, gain, energy, or
+channel artifacts.
+
+**Consequence:** obtain code, data contract, label origin, architecture/loss, seeds, and
+run metadata from the colleague. Compare VAE, classical PSD, the current shape score,
+physical features, and simple PCA/linear-AE baselines under one validation protocol.
+Do not augment training with decoded pulses until their physical fidelity is validated.
+The full review is `docs/colleague_vae_report_review.md`.
+
 ## 2026-07-20 — Separate condition-aware PSD, online adaptation, and detector control
 
 **Decision:** develop the future real-time system as three distinct layers: fast
@@ -291,3 +331,23 @@ impractical and risks exceeding GitHub file limits.
 **Consequence:** `.gitignore` defines the publication boundary. Data distribution, if
 needed later, must use a dedicated dataset release or external storage with checksums and
 documented provenance.
+
+## 2026-07-21 — Train the first real-data VAE per detector channel
+
+**Decision:** the first reproduction of the colleague's VAE is an equivalent documented
+three-dimensional VAE trained separately for each detector channel. Each channel uses
+10,000 `252Cf` events, a deterministic Qlong-stratified 80/20 train/validation split,
+and three model seeds. The `60Co` events are never used for fitting and serve only as an
+external gamma-control acquisition.
+
+**Rationale:** channel-specific models avoid asking the latent space to encode detector
+hardware, while the untouched Co acquisition exposes run/domain separation. Three
+coordinates reproduce the reported latent dimension without assuming that one fixed
+coordinate is the only physically meaningful one. Multiple seeds expose permutation,
+sign, rotation, and posterior-collapse ambiguity.
+
+**Consequence:** this experiment is an unsupervised representation audit, not a validated
+neutron/gamma classifier. Random event splitting within the only available Cf run cannot
+measure run generalization. Co-vs-Cf AUC is reported explicitly as acquisition/run AUC,
+never as particle AUC. Structural QC failures are excluded from fitting and aggregate
+diagnostics, while `low_snr` events remain eligible.
