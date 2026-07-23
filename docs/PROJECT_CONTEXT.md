@@ -1,6 +1,6 @@
 # PSD_ML project context
 
-Last updated: 2026-07-21
+Last updated: 2026-07-23
 
 ## Goal
 
@@ -46,6 +46,19 @@ controlled multi-condition measurements.
   uniformly stable, especially for CH2, so coordinate numbers cannot be assigned a fixed
   physical interpretation. Co-vs-Cf run AUC ranges only about 0.50–0.62 and is not a
   neutron/gamma metric.
+- `real_data_vae.ipynb` now includes a principal-direction interpretation stage. For
+  every channel, PCA is fitted to primary-seed posterior means on structural-ok
+  Cf-validation events; raw and Qlong-adjusted rank associations are compared with 18
+  measured shape, scale, technical, and model-diagnostic variables. Real low/high-decile
+  waveforms and decoder traversals are shown along each active PC. Directions below 1%
+  explained latent variance are explicitly marked collapsed and are not interpreted.
+- The active-direction interpretation is: CH0/CH2 have three factors combining
+  width/middle-area, rise/peak timing, and middle/decay variation; timing correlations
+  remain non-negligible. CH3 has one factor dominated by 50%/10% decay time. CH4 has two
+  factors: PC1 transfers prompt area into the middle/decay region, while PC2 controls the
+  late/very-late tail and charge centroid and is the clearest PSD-like candidate. CH5 has
+  one factor dominated by prompt-to-middle/decay redistribution. These are within-run
+  associations, not particle identities.
 - Experimental material and ROOT-file exploration utilities are under `gamma_n_data/`.
 - A Python virtual environment exists at `.venv/`.
 - Git is initialized on branch `main`; the public remote is
@@ -150,6 +163,8 @@ controlled multi-condition measurements.
   Plotly stages called by the notebook.
 - `psd_ml/vae.py` — channel-specific VAE, training, persistence, latent audit, and
   interactive result figures called by `real_data_vae.ipynb`.
+- `psd_ml/vae_interpretation.py` — latent-PC construction, physical/technical feature
+  audit, Qlong adjustment, decile contrasts, and PC waveform visualizations.
 - `requirements-vae.txt` — pinned additional PyTorch dependency for the VAE experiment.
 - `gamma_n_data/samples/` — reproducibly generated test samples and figures.
 - `gamma_n_data/JUPYTER.md` — notebook usage notes.

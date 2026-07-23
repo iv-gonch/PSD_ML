@@ -4,6 +4,34 @@ This file records durable decisions shared by all project tasks. New entries sho
 the date, decision, rationale, and consequences. If a decision is superseded, retain it
 and point to the replacing entry.
 
+## 2026-07-23 — Interpret VAE geometry through latent principal directions
+
+**Decision:** interpret the three-dimensional VAE through channel-specific principal
+directions of posterior means fitted on structural-ok Cf-validation events, not through
+the arbitrary `z1`/`z2`/`z3` coordinate numbers. Order directions by latent covariance
+eigenvalue. Orient their signs toward increasing 40:100 tail fraction when that
+association is measurable; otherwise use a deterministic loading convention. Mark a
+direction with less than 1% explained latent variance as collapsed and do not interpret
+its correlations or traversal.
+
+For each active direction, report raw Spearman associations and partial rank
+associations after quadratic adjustment for Qlong rank. Compare the direction with
+multiple observed shape measures, classical PSD, amplitude/SNR, baseline, raw CFD/peak
+timing, tail recovery, reconstruction error, real waveform deciles, and decoder
+traversal.
+
+**Rationale:** VAE coordinates can rotate, permute, and change sign, while the observed
+ball/ribbon/plane geometry concerns the covariance subspace. Qlong affects both waveform
+statistics and latent position, so an unadjusted correlation can mistake an energy trend
+for an independent shape factor. Tiny collapsed directions can show numerically large
+but scientifically meaningless correlations.
+
+**Consequence:** the resulting PCs are reproducible diagnostic directions for this fit,
+not identified physical causes, particle labels, or universally transferable axes.
+Technical timing associations and Co-vs-Cf run AUC must remain visible when evaluating a
+PC as a future `new_PSD` candidate. Independent runs and controlled measurements remain
+required.
+
 ## 2026-07-21 — Reframe the research around a benchmarked new PSD metric
 
 **Decision:** the primary research objective is to discover and validate the most

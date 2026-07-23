@@ -3,6 +3,43 @@
 Append newest entries at the top, directly below this introduction. Keep entries concise
 but sufficient for another task to continue without reading the originating chat.
 
+## 2026-07-23 — Interpret physical and technical changes along VAE directions
+
+**Task:** determine which measured physical-shape or technical property changes along
+each principal direction of the channel-specific VAE representations.
+
+**Changes:** added `psd_ml/vae_interpretation.py` and
+`tests/test_vae_interpretation.py`; extended and fully executed
+`real_data_vae.ipynb`. The new stage fits channel-specific latent PCA on structural-ok
+Cf-validation events, orients PC signs deterministically, measures 18 raw and
+Qlong-adjusted rank associations, exports event scores/bases/summary/contrast tables,
+and adds ten Plotly figures with association heatmaps, real waveform deciles, and decoder
+traversals. Directions below 1% explained variance are marked collapsed and omitted from
+interpretation.
+
+**Findings:** CH0/CH2 have three active factors combining width/middle-area,
+rise/peak-timing, and middle/decay changes; their residual timing associations require
+caution. CH3 has one decay-time factor. CH4 separates prompt-to-middle/decay transfer
+(PC1, 58.2%) from a late-tail/charge-centroid factor (PC2, 41.8%); PC2 is the clearest
+PSD-like candidate. CH5 has one prompt-to-middle/decay factor. No factor is yet a
+validated particle coordinate. Co-vs-Cf run AUC remains at most approximately 0.62.
+
+**Artifacts:** under ignored `gamma_n_data/samples/vae_real/`: five 20,000-row
+`principal_scores_CH*.csv` files, `principal_direction_bases.json`, three aggregate CSV
+tables (15 direction rows and 270 association/contrast rows each), five association HTML
+figures, and five waveform/traversal HTML figures. The notebook contains 40 Plotly
+outputs in total.
+
+**Verification:** the notebook ran end-to-end with zero error outputs; seven unit tests
+and module compilation pass. Actual browser renders were inspected at 1600 and 1200 px.
+Duplicate heatmap labels, long subplot titles, and misplaced collapsed annotations found
+by rendering were corrected; the final layouts show no clipping or overlap.
+
+**Limitations / next step:** PC association is observational and Qlong adjustment is not
+causal identification. Repeat the audit across model seeds and independent runs, compare
+with waveform PCA and optimized physical features, and test CH4 PC2 plus the active
+single-axis p-terphenyl scores against classical PSD within fixed low-energy strata.
+
 ## 2026-07-23 — Commit and publish the complete accumulated workspace
 
 **Task:** preserve every tracked and untracked project change that had accumulated since
